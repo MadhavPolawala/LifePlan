@@ -1,0 +1,56 @@
+{
+  "navbar": [
+    { "name": "Dashboard", "icon": "../../../assets/images/icons/home.png" },
+    { "name": "Tasks", "icon": "../../../assets/images/icons/tasks.png" },
+    { "name": "Goals", "icon": "../../../assets/images/icons/goals.png" },
+    { "name": "Routine", "icon": "../../../assets/images/icons/routine.png" },
+    { "name": "Journal", "icon": "../../../assets/images/icons/journal.png" },
+    { "name": "AI Advisor", "icon": "../../../assets/images/icons/ai.png" }
+  ],
+
+  "shared": [
+    {
+      "name": "Travel",
+      "icon": "../../../assets/images/icons/travel.png"
+    }
+  ],
+
+  "private": [
+    {
+      "name": "Home",
+      "icon": "../../../assets/images/icons/p-home.png"
+    },
+    {
+      "name": "Family",
+      "icon": "../../../assets/images/icons/family.png"
+    },
+    {
+      "name": "Career",
+      "icon": "../../../assets/images/icons/career.png"
+    },
+    {
+      "name": "Sport",
+      "icon": "../../../assets/images/icons/sport.png"
+    },
+    {
+      "name": "Finance",
+      "icon": "../../../assets/images/icons/finance.png"
+    },
+    {
+      "name": "Travel",
+      "icon": "../../../assets/images/icons/travel.png"
+    },
+    {
+      "name": "Travel",
+      "icon": "../../../assets/images/icons/travel.png"
+    },
+    {
+      "name": "Travel",
+      "icon": "../../../assets/images/icons/travel.png"
+    },
+    {
+      "name": "Travel",
+      "icon": "../../../assets/images/icons/travel.png"
+    }
+  ]
+}

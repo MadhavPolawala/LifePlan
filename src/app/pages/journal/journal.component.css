@@ -1,0 +1,13 @@
+.scroll-hide {
+    overflow-y: auto;           /* Allows vertical scrolling */
+    scrollbar-width: none;      /* For Firefox */
+    -ms-overflow-style: none;   /* For Internet Explorer and Edge */
+  }
+  
+  .scroll-hide::-webkit-scrollbar {
+    display: none;              /* Hides the scrollbar for WebKit browsers */
+  }
+
+  /* input css */
+  /* border border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 focus:border-2 inter-4 text-base text-gray-500 transition duration-300 */
+
