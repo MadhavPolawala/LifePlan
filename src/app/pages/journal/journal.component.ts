@@ -9,11 +9,34 @@ import {
   Validators,
 } from '@angular/forms';
 import { openDB } from 'idb';
+import {
+  CdkDragDrop,
+  moveItemInArray,
+  DragDropModule,
+} from '@angular/cdk/drag-drop';
+import { EditorModule } from '@tinymce/tinymce-angular';
+import { from, Observable } from 'rxjs';
+import { FileSizePipe } from '../../file-size.pipe';
+
+interface FileUpload {
+  fileUrl: any;
+  file: File;
+  progress: number;
+  isUploading: boolean;
+}
 
 @Component({
   selector: 'app-journal',
   standalone: true,
-  imports: [HttpClientModule, CommonModule, ReactiveFormsModule, FormsModule],
+  imports: [
+    HttpClientModule,
+    CommonModule,
+    ReactiveFormsModule,
+    FormsModule,
+    DragDropModule,
+    EditorModule,
+    FileSizePipe,
+  ],
   templateUrl: './journal.component.html',
   styleUrl: './journal.component.css',
 })
@@ -50,14 +73,45 @@ export class JournalComponent implements OnInit {
   fileNames: string[] = [];
   dbFiles: any;
 
+  files: Array<{
+    file: File;
+    fileUrl: string;
+    progress: number;
+    isUploading: boolean;
+  }> = [];
+  storedFiles: Array<{
+    name: string;
+    type: string;
+    content: string | ArrayBuffer | null;
+  }> = [];
+  uploadProgress: number[] = [];
+
+  journalEntries = [
+    {
+      title: 'Daily Reflections:',
+      content: 'Introduced a new espressos for the...',
+    },
+    {
+      title: 'Goals and Objectives:',
+      content: 'Increased daily foot traffic by...',
+    },
+    {
+      title: 'Financial Updates:',
+      content: "Today's revenue: $1,200; expenses: $1,000x",
+    },
+  ];
+
   journalForm = new FormGroup({
     title: new FormControl('', [Validators.required]),
     description: new FormControl('', [Validators.required]),
     tagEnter: new FormControl([], [Validators.required]),
+    //all tags will be stored in this array
+    tags: new FormControl([]),
   });
 
   constructor(private http: HttpClient) {
     this.initIndexedDB();
+    this.initIndexedDBFile();
   }
 
   ngOnInit(): void {
@@ -67,6 +121,14 @@ export class JournalComponent implements OnInit {
       this.sharedJson = this.jsonData.shared;
       this.privateJson = this.jsonData.private;
     });
+
+    const savedOrder = localStorage.getItem('journalOrder');
+    if (savedOrder) {
+      this.journalEntries = JSON.parse(savedOrder);
+    }
+    this.loadStoredFiles();
+    this.initIndexedDBFile();
+    this.loadTagsFromLocalStorage();
   }
 
   get title() {
@@ -83,6 +145,7 @@ export class JournalComponent implements OnInit {
 
   journalFormSubmit() {
     console.log(this.journalForm.value);
+    this.journalForm.value;
   }
 
   openJournalModal() {
@@ -284,7 +347,7 @@ export class JournalComponent implements OnInit {
       date: new Date(),
     });
   }
-  addTag(): void {
+  addTag() {
     const tagInput = document.getElementById('tagInput') as HTMLInputElement;
     const tag = tagInput.value.trim();
 
@@ -294,9 +357,22 @@ export class JournalComponent implements OnInit {
 
     // Clear input after tag is added
     tagInput.value = '';
+
+    console.log(this.tags);
   }
   removeTag(index: number): void {
     this.tags.splice(index, 1);
+  }
+
+  saveTagsToLocalStorage(): void {
+    localStorage.setItem('tags', JSON.stringify(this.tags));
+  }
+
+  loadTagsFromLocalStorage(): void {
+    const storedTags = localStorage.getItem('tags');
+    if (storedTags) {
+      this.tags = JSON.parse(storedTags);
+    }
   }
 
   async initIndexedDB() {
@@ -352,5 +428,138 @@ export class JournalComponent implements OnInit {
     const store = tx.objectStore('files');
     await store.add(fileData);
     await tx.done;
+  }
+
+  drop(event: CdkDragDrop<any[]>) {
+    moveItemInArray(
+      this.journalEntries,
+      event.previousIndex,
+      event.currentIndex
+    );
+    // Save the new order to localStorage
+    localStorage.setItem('journalOrder', JSON.stringify(this.journalEntries));
+  }
+  onCancelAddJournal() {
+    const journalModal = document.getElementById('journalModal');
+    const journalModalInput = document.getElementById('journalModalInput');
+
+    journalModalInput?.classList.add('hidden');
+    journalModal?.classList.remove('hidden');
+  }
+
+  // File Input
+
+  async initIndexedDBFile() {
+    await openDB('FileStore', 1, {
+      upgrade(db) {
+        db.createObjectStore('files', { keyPath: 'name' });
+      },
+    });
+  }
+
+  // On file selection
+  onFileSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files) return;
+
+    for (let i = 0; i < input.files.length; i++) {
+      const file = input.files[i];
+
+      // Generate a URL for viewing the file
+      const fileUrl = URL.createObjectURL(file);
+
+      // Add new file to the top of the list
+      this.files.unshift({ file, fileUrl, progress: 0, isUploading: true });
+
+      const currentFileIndex = 0; // Since we just added it to the top
+      this.storeFile(file);
+      this.uploadFile(file, currentFileIndex); // Pass the index of the new file
+    }
+  }
+
+  // Store the file in IndexedDB
+  async storeFile(file: File) {
+    const db = await openDB('FileStore', 1);
+
+    // Read the file content as a Data URL
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const fileData = {
+        name: file.name,
+        type: file.type,
+        content: reader.result, // File content as Data URL
+      };
+
+      const tx = db.transaction('files', 'readwrite');
+      await tx.store.add(fileData); // Store file data (name, type, content)
+      await tx.done;
+
+      // After storing, reload the stored files
+      await this.loadStoredFiles();
+    };
+    reader.readAsDataURL(file); // Read file content
+  }
+
+  // Simulate file upload and update progress
+  uploadFile(file: File, index: number) {
+    const upload$ = this.simulateUpload(file);
+
+    upload$.subscribe({
+      next: (progress) => {
+        this.files[index].progress = progress; // Update progress for the current file
+      },
+      complete: () => {
+        this.files[index].isUploading = false; // Mark file as uploaded
+      },
+    });
+  }
+
+  // Simulated upload (replace with actual API call if needed)
+  simulateUpload(file: File): Observable<number> {
+    return new Observable((observer) => {
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 10;
+        observer.next(progress);
+        if (progress === 100) {
+          clearInterval(interval);
+          observer.complete();
+        }
+      }, 200);
+    });
+  }
+
+  // Remove file from list and IndexedDB
+  async removeFile(index: number) {
+    const file = this.files[index].file;
+    this.files.splice(index, 1);
+
+    const db = await openDB('FileStore', 1);
+    const tx = db.transaction('files', 'readwrite');
+    await tx.store.delete(file.name);
+    await tx.done;
+
+    await this.loadStoredFiles();
+  }
+
+  // Return file type icon based on extension (this is just a sample implementation)
+  getFileIcon(file: FileUpload) {
+    // For image files, return the data URL to display it
+    if (file.file.type.startsWith('image')) {
+      return file.fileUrl; // Use the URL generated during upload
+    }
+
+    // For other types of files, return a generic icon
+    return '../../../assets/images/icons/file-icon.png'; // Replace with actual path for non-image files
+  }
+
+  async loadStoredFiles() {
+    const db = await openDB('FileStore', 1);
+    const tx = db.transaction('files', 'readonly');
+    const store = tx.store;
+    const allFiles = await store.getAll(); // Get all stored files
+    await tx.done;
+
+    this.storedFiles = allFiles; // Save them in storedFiles array
   }
 }
