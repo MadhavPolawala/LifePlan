@@ -6,4 +6,9 @@ export const routes: Routes = [
     path: 'journal',
     component: JournalComponent,
   },
+  {
+    path: '',
+    redirectTo: 'journal',
+    pathMatch: 'full',
+  },
 ];
