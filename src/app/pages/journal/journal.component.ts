@@ -1,12 +1,17 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import {
   FormsModule,
   ReactiveFormsModule,
   FormControl,
   FormGroup,
   Validators,
+  FormBuilder,
+  FormArray,
+  ValidatorFn,
+  AbstractControl,
+  ValidationErrors,
 } from '@angular/forms';
 import { openDB } from 'idb';
 import {
@@ -17,6 +22,7 @@ import {
 import { EditorModule } from '@tinymce/tinymce-angular';
 import { from, Observable } from 'rxjs';
 import { FileSizePipe } from '../../file-size.pipe';
+import { VideoStorageService } from '../../services/video-storage.service';
 
 interface FileUpload {
   fileUrl: any;
@@ -54,6 +60,17 @@ export class JournalComponent implements OnInit {
   audioChunks: Blob[] = [];
   audioUrl: string | null = null;
   audioPlayer: HTMLAudioElement | null = null;
+  hasInteractedTags: boolean = false;
+
+  // video
+
+  private mediaRecorderVideo!: MediaRecorder;
+  private recordedChunks: Blob[] = [];
+  isRecording = false;
+  videoSrc: string | null = null;
+  allVideos: { id: string; videoBlob: Blob }[] = [];
+  showDeleteConfirmation = false; // Flag to control the modal visibility
+  videoToDelete: string | null = null;
 
   jsonData: any;
   navbarJson: any;
@@ -86,30 +103,26 @@ export class JournalComponent implements OnInit {
   }> = [];
   uploadProgress: number[] = [];
 
-  journalEntries = [
-    {
-      title: 'Daily Reflections:',
-      content: 'Introduced a new espressos for the...',
-    },
-    {
-      title: 'Goals and Objectives:',
-      content: 'Increased daily foot traffic by...',
-    },
-    {
-      title: 'Financial Updates:',
-      content: "Today's revenue: $1,200; expenses: $1,000x",
-    },
-  ];
+  journalEntries: {
+    title: string;
+    description: string;
+    tags: string[];
+    audio: Blob | null;
+  }[] = [];
 
   journalForm = new FormGroup({
     title: new FormControl('', [Validators.required]),
     description: new FormControl('', [Validators.required]),
-    tagEnter: new FormControl([], [Validators.required]),
-    //all tags will be stored in this array
-    tags: new FormControl([]),
+    tagEnter: new FormArray([], [this.minimumOneTagValidator()]), //all tags will be stored in this array
   });
 
-  constructor(private http: HttpClient) {
+  @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
+
+  constructor(
+    private http: HttpClient,
+    private fb: FormBuilder,
+    private videoStorageService: VideoStorageService
+  ) {
     this.initIndexedDB();
     this.initIndexedDBFile();
   }
@@ -129,6 +142,11 @@ export class JournalComponent implements OnInit {
     this.loadStoredFiles();
     this.initIndexedDBFile();
     this.loadTagsFromLocalStorage();
+    this.loadAllVideos();
+  }
+
+  preventSubmit(event: Event) {
+    event.preventDefault();
   }
 
   get title() {
@@ -140,12 +158,42 @@ export class JournalComponent implements OnInit {
   }
 
   get tagEnter() {
-    return this.journalForm.get('tagEnter');
+    return this.journalForm.get('tagEnter') as FormArray;
   }
 
-  journalFormSubmit() {
-    console.log(this.journalForm.value);
-    this.journalForm.value;
+  minimumOneTagValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      const tags = control.value;
+      return tags && tags.length > 0 ? null : { minimumOneTag: true };
+    };
+  }
+
+  onSubmitAddJournal() {
+    const journalModal = document.getElementById('journalModal');
+    const journalModalInput = document.getElementById('journalModalInput');
+
+    if (this.journalForm.valid) {
+      // Create a new journal entry object
+      const newJournalEntry = {
+        title: this.journalForm.value.title || '', // Default to an empty string if null or undefined
+        description: this.journalForm.value.description || '', // Default to an empty string if null or undefined
+        tags: this.journalForm.value.tagEnter || [], // Default to an empty array if null or undefined
+        audio: this.recordedAudio, // Add the recorded audio here
+      };
+
+      // Push the new journal entry to the entries array
+      this.journalEntries.push(newJournalEntry);
+
+      console.log('Form submitted:', this.journalForm.value);
+      journalModalInput?.classList.add('hidden');
+      journalModal?.classList.remove('hidden');
+      this.journalForm.reset();
+      this.recordedAudio = null; // Clear recorded audio after submission
+      this.currentAudioState = 'initialAudio'; // Reset audio state if necessary
+    } else {
+      this.journalForm.markAllAsTouched();
+      return;
+    }
   }
 
   openJournalModal() {
@@ -206,6 +254,11 @@ export class JournalComponent implements OnInit {
     journalStart?.classList.add('hidden');
     journalModal?.classList.add('hidden');
     journalModalInput?.classList.remove('hidden');
+
+    this.journalForm.reset();
+    this.recordedAudio = null;
+    this.currentAudioState = 'initialAudio';
+    this.tagEnter.clear();
   }
 
   onAudioResume() {
@@ -298,10 +351,10 @@ export class JournalComponent implements OnInit {
   }
 
   onRecordedPlay() {
-    // const recordedPlayIcon = document.getElementById('recordedPlayIcon');
-    // const recordedPauseIcon = document.getElementById('recordedPauseIcon');
-    // recordedPlayIcon?.classList.add('hidden');
-    // recordedPauseIcon?.classList.remove('hidden');
+    const recordedPlayIcon = document.getElementById('recordedPlayIcon');
+    const recordedPauseIcon = document.getElementById('recordedPauseIcon');
+    recordedPlayIcon?.classList.add('hidden');
+    recordedPauseIcon?.classList.remove('hidden');
     if (!this.audioUrl) return;
 
     this.audioPlayer = new Audio(this.audioUrl);
@@ -316,7 +369,23 @@ export class JournalComponent implements OnInit {
     };
   }
 
+  onPlayRecordedAudio(audioBlob: Blob | null) {
+    if (!audioBlob) return;
+
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audioPlayer = new Audio(audioUrl);
+    audioPlayer.play();
+
+    audioPlayer.onended = () => {
+      URL.revokeObjectURL(audioUrl); // Clean up URL object after playback
+    };
+  }
+
   onRecordedPause() {
+    const recordedPlayIcon = document.getElementById('recordedPlayIcon');
+    const recordedPauseIcon = document.getElementById('recordedPauseIcon');
+    recordedPlayIcon?.classList.remove('hidden');
+    recordedPauseIcon?.classList.add('hidden');
     this.audioPlayer?.pause();
     this.isPlaying = false;
   }
@@ -347,31 +416,119 @@ export class JournalComponent implements OnInit {
       date: new Date(),
     });
   }
+
+  // Video input
+
+  async startRecording() {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    this.videoElement.nativeElement.srcObject = stream;
+    this.mediaRecorderVideo = new MediaRecorder(stream);
+
+    this.mediaRecorderVideo.ondataavailable = (event) => {
+      this.recordedChunks.push(event.data);
+    };
+
+    this.mediaRecorderVideo.onstop = this.handleStop.bind(this);
+    this.mediaRecorderVideo.start();
+    this.isRecording = true;
+  }
+
+  stopRecording() {
+    this.mediaRecorderVideo.stop();
+    this.isRecording = false;
+  }
+
+  private async handleStop() {
+    const videoBlob = new Blob(this.recordedChunks, { type: 'video/webm' });
+    const videoId = `video_${Date.now()}`;
+
+    // Save the video blob
+    await this.videoStorageService.addVideo(videoId, videoBlob);
+
+    // Create a URL for the video blob
+    this.videoSrc = URL.createObjectURL(videoBlob);
+
+    // Reset recordedChunks for the next recording
+    this.recordedChunks = [];
+
+    // Reload all videos to refresh the display
+    await this.loadAllVideos();
+  }
+
+  private async loadAllVideos() {
+    this.allVideos = await this.videoStorageService.getAllVideos(); // Fetch all videos
+  }
+
+  getVideoUrl(videoBlob: Blob): string {
+    return window.URL.createObjectURL(videoBlob);
+  }
+
+  async deleteVideo(id: string) {
+    await this.videoStorageService.deleteVideo(id); // Delete from storage
+    await this.loadAllVideos(); // Reload videos after deletion
+  }
+  openDeleteConfirmation(id: string) {
+    this.videoToDelete = id; // Set the ID of the video to delete
+    this.showDeleteConfirmation = true; // Show the confirmation modal
+  }
+
+  confirmDelete() {
+    if (this.videoToDelete) {
+      this.deleteVideo(this.videoToDelete);
+    }
+    this.closeDeleteConfirmation(); // Close the modal
+  }
+
+  closeDeleteConfirmation() {
+    this.videoToDelete = null; // Reset the video ID
+    this.showDeleteConfirmation = false; // Hide the modal
+  }
+
+  // Tag input
+
   addTag() {
     const tagInput = document.getElementById('tagInput') as HTMLInputElement;
     const tag = tagInput.value.trim();
 
     if (tag !== '') {
-      this.tags.push(tag);
+      // Add tag to the FormArray
+      this.tagEnter.push(new FormControl(tag, Validators.required));
+      this.hasInteractedTags = true;
+    } else {
+      this.hasInteractedTags = true;
     }
 
-    // Clear input after tag is added
+    // Clear the input after the tag is added
     tagInput.value = '';
 
-    console.log(this.tags);
-  }
-  removeTag(index: number): void {
-    this.tags.splice(index, 1);
+    // Save the tags to localStorage
+    this.saveTagsToLocalStorage();
   }
 
+  onBlurTag() {
+    this.hasInteractedTags = true; // Set on focus to ensure the user has interacted with the input
+  }
+
+  removeTag(index: number): void {
+    this.tagEnter.removeAt(index); // Remove tag from FormArray
+
+    // Save the updated tags to localStorage
+    this.saveTagsToLocalStorage();
+  }
+
+  // Save the tags from the FormArray to localStorage
   saveTagsToLocalStorage(): void {
-    localStorage.setItem('tags', JSON.stringify(this.tags));
+    const tags = this.tagEnter.value; // Get all tags from the form
+    localStorage.setItem('tags', JSON.stringify(tags));
   }
 
   loadTagsFromLocalStorage(): void {
     const storedTags = localStorage.getItem('tags');
     if (storedTags) {
-      this.tags = JSON.parse(storedTags);
+      const tags = JSON.parse(storedTags);
+      tags.forEach((tag: string) => {
+        this.tagEnter.push(new FormControl(tag, Validators.required));
+      });
     }
   }
 
@@ -450,7 +607,7 @@ export class JournalComponent implements OnInit {
   // File Input
 
   async initIndexedDBFile() {
-    await openDB('FileStore', 1, {
+    await openDB('fileStorageDB', 1, {
       upgrade(db) {
         db.createObjectStore('files', { keyPath: 'name' });
       },
@@ -479,7 +636,7 @@ export class JournalComponent implements OnInit {
 
   // Store the file in IndexedDB
   async storeFile(file: File) {
-    const db = await openDB('FileStore', 1);
+    const db = await openDB('fileStorageDB', 1);
 
     // Read the file content as a Data URL
     const reader = new FileReader();
@@ -534,7 +691,7 @@ export class JournalComponent implements OnInit {
     const file = this.files[index].file;
     this.files.splice(index, 1);
 
-    const db = await openDB('FileStore', 1);
+    const db = await openDB('fileStorageDB', 1);
     const tx = db.transaction('files', 'readwrite');
     await tx.store.delete(file.name);
     await tx.done;
@@ -554,7 +711,7 @@ export class JournalComponent implements OnInit {
   }
 
   async loadStoredFiles() {
-    const db = await openDB('FileStore', 1);
+    const db = await openDB('fileStorageDB', 1);
     const tx = db.transaction('files', 'readonly');
     const store = tx.store;
     const allFiles = await store.getAll(); // Get all stored files
