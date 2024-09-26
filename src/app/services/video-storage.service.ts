@@ -27,6 +27,11 @@ export class VideoStorageService {
     const videos = await db.getAll('videos');
     return videos;
   }
+  async getAllAudios(): Promise<{ id: string; audioBlob: Blob }[]> {
+    const db = await this.dbPromise;
+    const audios = await db.getAll('audios');
+    return audios;
+  }
 
   async deleteVideo(id: string): Promise<void> {
     const db = await this.dbPromise;

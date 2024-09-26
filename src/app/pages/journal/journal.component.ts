@@ -23,6 +23,10 @@ import { EditorModule } from '@tinymce/tinymce-angular';
 import { from, Observable } from 'rxjs';
 import { FileSizePipe } from '../../file-size.pipe';
 import { VideoStorageService } from '../../services/video-storage.service';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { v4 as uuidv4 } from 'uuid';
+import { ActivatedRoute } from '@angular/router';
+import { AudioStorageService } from '../../services/audio-storage.service';
 
 interface FileUpload {
   fileUrl: any;
@@ -61,6 +65,8 @@ export class JournalComponent implements OnInit {
   audioUrl: string | null = null;
   audioPlayer: HTMLAudioElement | null = null;
   hasInteractedTags: boolean = false;
+  audioSrc: string | null = null;
+  private recordedChunksAudio: Blob[] = [];
 
   // video
 
@@ -104,11 +110,32 @@ export class JournalComponent implements OnInit {
   uploadProgress: number[] = [];
 
   journalEntries: {
+    id: string;
     title: string;
     description: string;
     tags: string[];
-    audio: Blob | null;
+    audio: any;
   }[] = [];
+  selectedJournalEntry: {
+    id: string;
+    title: string;
+    description: string;
+    tags: string[];
+    audio: any;
+  } | null = null;
+  selectedEntry: any;
+
+  sanitizedDescription: SafeHtml | null = null;
+
+  onSelectJournalEntry(entry: {
+    id: string;
+    title: string;
+    description: string;
+    tags: string[];
+    audio: any;
+  }) {
+    this.selectedJournalEntry = entry;
+  }
 
   journalForm = new FormGroup({
     title: new FormControl('', [Validators.required]),
@@ -121,7 +148,10 @@ export class JournalComponent implements OnInit {
   constructor(
     private http: HttpClient,
     private fb: FormBuilder,
-    private videoStorageService: VideoStorageService
+    private videoStorageService: VideoStorageService,
+    private sanitizer: DomSanitizer,
+    private route: ActivatedRoute,
+    private audioStorageService: AudioStorageService
   ) {
     this.initIndexedDB();
     this.initIndexedDBFile();
@@ -135,14 +165,18 @@ export class JournalComponent implements OnInit {
       this.privateJson = this.jsonData.private;
     });
 
-    const savedOrder = localStorage.getItem('journalOrder');
-    if (savedOrder) {
-      this.journalEntries = JSON.parse(savedOrder);
-    }
+    this.loadJournalEntries();
     this.loadStoredFiles();
     this.initIndexedDBFile();
     this.loadTagsFromLocalStorage();
     this.loadAllVideos();
+    this.sanitizedDescription = this.sanitizer.bypassSecurityTrustHtml(
+      this.selectedJournalEntry?.description || ''
+    );
+    const savedOrder = localStorage.getItem('journalOrder');
+    if (savedOrder) {
+      this.journalEntries = JSON.parse(savedOrder);
+    }
   }
 
   preventSubmit(event: Event) {
@@ -175,14 +209,29 @@ export class JournalComponent implements OnInit {
     if (this.journalForm.valid) {
       // Create a new journal entry object
       const newJournalEntry = {
+        id: uuidv4(),
         title: this.journalForm.value.title || '', // Default to an empty string if null or undefined
         description: this.journalForm.value.description || '', // Default to an empty string if null or undefined
         tags: this.journalForm.value.tagEnter || [], // Default to an empty array if null or undefined
-        audio: this.recordedAudio, // Add the recorded audio here
+        audio: null as string | null, // Add the recorded audio here
       };
+      if (this.recordedAudio) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newJournalEntry.audio = reader.result as string; // Set base64 string
+          this.saveJournalEntry(newJournalEntry); // Save entry with audio
+        };
+        reader.readAsDataURL(this.recordedAudio); // Convert Blob to base64
+      } else {
+        this.journalEntries.push(newJournalEntry);
+        localStorage.setItem(
+          'journalEntries',
+          JSON.stringify(this.journalEntries)
+        );
+      }
 
       // Push the new journal entry to the entries array
-      this.journalEntries.push(newJournalEntry);
+      //store to localstorage
 
       console.log('Form submitted:', this.journalForm.value);
       journalModalInput?.classList.add('hidden');
@@ -195,6 +244,8 @@ export class JournalComponent implements OnInit {
       return;
     }
   }
+
+  // Save journal entries to local storage
 
   openJournalModal() {
     this.journalModal = !this.journalModal;
@@ -262,11 +313,11 @@ export class JournalComponent implements OnInit {
   }
 
   onAudioResume() {
-    // const recordingPauseIcon = document.getElementById('recordingPauseIcon');
-    // const recordingResumeIcon = document.getElementById('recordingResumeIcon');
+    const recordingPauseIcon = document.getElementById('recordingPauseIcon');
+    const recordingResumeIcon = document.getElementById('recordingResumeIcon');
 
-    // recordingPauseIcon?.classList.remove('hidden');
-    // recordingResumeIcon?.classList.add('hidden');
+    recordingPauseIcon?.classList.remove('hidden');
+    recordingResumeIcon?.classList.add('hidden');
 
     this.isPaused = false;
     this.recorder?.resume();
@@ -287,7 +338,23 @@ export class JournalComponent implements OnInit {
       this.audioUrl = URL.createObjectURL(this.recordedAudio);
       this.recordedDuration = this.recordingTime;
 
-      await this.saveToIndexedDB(this.recordedAudio);
+      //save to local storage
+
+      const audioBlob = new Blob(this.recordedChunksAudio, {
+        type: 'audio/webm',
+      });
+      const audioId = `audio_${Date.now()}`;
+
+      // Save the video blob
+      await this.audioStorageService.addAudio(audioId, audioBlob);
+
+      // Create a URL for the video blob
+      this.audioSrc = URL.createObjectURL(audioBlob);
+
+      // Reset recordedChunksAudio for the next recording
+      this.recordedChunksAudio = [];
+
+      // Reload all videos to refresh the display
       this.currentAudioState = 'recordedAudio';
     };
   }
@@ -303,21 +370,6 @@ export class JournalComponent implements OnInit {
     this.recorder.start();
     this.isPaused = false;
     this.startRecordingTimer();
-    // try {
-    //   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    //   this.recorder = new MediaRecorder(stream);
-
-    //   // Additional setup...
-    //   this.recorder.start();
-
-    //   // Start recording timer
-    //   this.startRecordingTimer();
-
-    //   this.currentAudioState = 'recordingAudio'; // Update state
-    // } catch (error) {
-    //   console.error('Error accessing microphone:', error);
-    //   alert('Please check your microphone settings and permissions.');
-    // }
   }
 
   startRecordingTimer() {
@@ -353,22 +405,32 @@ export class JournalComponent implements OnInit {
   onRecordedPlay() {
     const recordedPlayIcon = document.getElementById('recordedPlayIcon');
     const recordedPauseIcon = document.getElementById('recordedPauseIcon');
+
+    // Toggle the play/pause icons
     recordedPlayIcon?.classList.add('hidden');
     recordedPauseIcon?.classList.remove('hidden');
+
+    // Ensure there's an audio URL
     if (!this.audioUrl) return;
 
+    // Create an audio player instance and start playing
     this.audioPlayer = new Audio(this.audioUrl);
     this.isPlaying = true;
 
     this.audioPlayer.play();
     this.startPlaybackTimer();
 
+    // Listen for when the audio ends
     this.audioPlayer.onended = () => {
+      // Toggle the icons back to show play when audio ends
+      recordedPlayIcon?.classList.remove('hidden');
+      recordedPauseIcon?.classList.add('hidden');
+
+      // Reset playback state
       this.isPlaying = false;
       this.playbackTime = 0;
     };
   }
-
   onPlayRecordedAudio(audioBlob: Blob | null) {
     if (!audioBlob) return;
 
@@ -452,7 +514,6 @@ export class JournalComponent implements OnInit {
     this.recordedChunks = [];
 
     // Reload all videos to refresh the display
-    await this.loadAllVideos();
   }
 
   private async loadAllVideos() {
@@ -718,5 +779,25 @@ export class JournalComponent implements OnInit {
     await tx.done;
 
     this.storedFiles = allFiles; // Save them in storedFiles array
+  }
+  saveJournalEntry(newJournalEntry: any) {
+    this.journalEntries.push(newJournalEntry); // Add to journalEntries array
+    localStorage.setItem('journalEntries', JSON.stringify(this.journalEntries)); // Save to localStorage
+
+    console.log('Form submitted:', newJournalEntry);
+    this.journalForm.reset(); // Reset the form
+    this.recordedAudio = null; // Clear recorded audio
+    this.currentAudioState = 'initialAudio'; // Reset audio state
+  }
+
+  loadJournalEntries() {
+    const entries = localStorage.getItem('journalEntries');
+    if (entries) {
+      this.journalEntries = JSON.parse(entries);
+    }
+  }
+
+  displayJournalEntry(index: number) {
+    this.selectedEntry = this.journalEntries[index];
   }
 }

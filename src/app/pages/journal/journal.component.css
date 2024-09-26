@@ -45,3 +45,7 @@
 .z-3 {
   z-index: 3;
 }
+
+::ng-deep img {
+  border-radius: 12px;
+}
