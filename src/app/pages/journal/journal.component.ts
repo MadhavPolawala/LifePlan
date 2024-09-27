@@ -27,6 +27,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { v4 as uuidv4 } from 'uuid';
 import { ActivatedRoute } from '@angular/router';
 import { AudioStorageService } from '../../services/audio-storage.service';
+import { IfStmt } from '@angular/compiler';
 
 interface FileUpload {
   fileUrl: any;
@@ -56,8 +57,8 @@ export class JournalComponent implements OnInit {
   isPaused = false;
   isPlaying = false;
   recordingTime = 0;
-  maxRecordingTime = 60; // 1 minute max recording
-  recordedAudio: Blob | null = null;
+  maxRecordingTime = 60;
+  recordedAudio: any;
   recordedDuration = 0;
   playbackTime = 0;
   recorder: MediaRecorder | null = null;
@@ -74,9 +75,13 @@ export class JournalComponent implements OnInit {
   private recordedChunks: Blob[] = [];
   isRecording = false;
   videoSrc: string | null = null;
+  videoStored: string | null = null;
   allVideos: { id: string; videoBlob: Blob }[] = [];
-  showDeleteConfirmation = false; // Flag to control the modal visibility
+  showDeleteConfirmation = false;
   videoToDelete: string | null = null;
+  videoBlob: any;
+  recordedVideo: any;
+  videoUrl: string | null = null;
 
   jsonData: any;
   navbarJson: any;
@@ -115,6 +120,8 @@ export class JournalComponent implements OnInit {
     description: string;
     tags: string[];
     audio: any;
+    video: any;
+    files: any;
   }[] = [];
   selectedJournalEntry: {
     id: string;
@@ -122,6 +129,8 @@ export class JournalComponent implements OnInit {
     description: string;
     tags: string[];
     audio: any;
+    video: any;
+    files: any;
   } | null = null;
   selectedEntry: any;
 
@@ -133,6 +142,8 @@ export class JournalComponent implements OnInit {
     description: string;
     tags: string[];
     audio: any;
+    video: any;
+    files: any;
   }) {
     this.selectedJournalEntry = entry;
   }
@@ -173,6 +184,7 @@ export class JournalComponent implements OnInit {
     this.sanitizedDescription = this.sanitizer.bypassSecurityTrustHtml(
       this.selectedJournalEntry?.description || ''
     );
+
     const savedOrder = localStorage.getItem('journalOrder');
     if (savedOrder) {
       this.journalEntries = JSON.parse(savedOrder);
@@ -207,45 +219,61 @@ export class JournalComponent implements OnInit {
     const journalModalInput = document.getElementById('journalModalInput');
 
     if (this.journalForm.valid) {
-      // Create a new journal entry object
       const newJournalEntry = {
         id: uuidv4(),
-        title: this.journalForm.value.title || '', // Default to an empty string if null or undefined
-        description: this.journalForm.value.description || '', // Default to an empty string if null or undefined
-        tags: this.journalForm.value.tagEnter || [], // Default to an empty array if null or undefined
-        audio: null as string | null, // Add the recorded audio here
+        title: this.journalForm.value.title || '',
+        description: this.journalForm.value.description || '',
+        tags: this.journalForm.value.tagEnter || [],
+        audio: null as string | null,
+        video: null as string | null,
+        files: null as string | null,
       };
+
+      const promises: Promise<void>[] = [];
+
       if (this.recordedAudio) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          newJournalEntry.audio = reader.result as string; // Set base64 string
-          this.saveJournalEntry(newJournalEntry); // Save entry with audio
-        };
-        reader.readAsDataURL(this.recordedAudio); // Convert Blob to base64
-      } else {
-        this.journalEntries.push(newJournalEntry);
-        localStorage.setItem(
-          'journalEntries',
-          JSON.stringify(this.journalEntries)
-        );
+        const audioPromise = new Promise<void>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            newJournalEntry.audio = reader.result as string;
+            resolve();
+          };
+          reader.readAsDataURL(this.recordedAudio);
+        });
+        promises.push(audioPromise);
       }
 
-      // Push the new journal entry to the entries array
-      //store to localstorage
+      if (this.recordedVideo) {
+        const videoPromise = new Promise<void>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            newJournalEntry.video = reader.result as string;
+            resolve();
+          };
+          reader.readAsDataURL(this.recordedVideo);
+        });
+        promises.push(videoPromise);
+      }
+
+      Promise.all(promises).then(() => {
+        this.saveJournalEntry(newJournalEntry);
+      });
+
+      //file input
 
       console.log('Form submitted:', this.journalForm.value);
       journalModalInput?.classList.add('hidden');
       journalModal?.classList.remove('hidden');
       this.journalForm.reset();
-      this.recordedAudio = null; // Clear recorded audio after submission
-      this.currentAudioState = 'initialAudio'; // Reset audio state if necessary
+      this.recordingTime = 0;
+      this.recordedAudio = null;
+      this.recordedVideo = null;
+      this.currentAudioState = 'initialAudio';
     } else {
       this.journalForm.markAllAsTouched();
       return;
     }
   }
-
-  // Save journal entries to local storage
 
   openJournalModal() {
     this.journalModal = !this.journalModal;
@@ -262,54 +290,49 @@ export class JournalComponent implements OnInit {
     journalSearch1.classList.add('-translate-x-full', 'opacity-0');
     journalSearch1.classList.remove('translate-x-0', 'opacity-100');
 
-    // Step 2: After journalSearch1 finishes, show journalSearch2 (left to right)
     setTimeout(() => {
-      journalSearch1.classList.add('hidden'); // Completely hide journalSearch1
+      journalSearch1.classList.add('hidden');
 
-      // Show journalSearch2
-      journalSearch2.classList.remove('hidden'); // Make journalSearch2 visible
-      journalSearch2.classList.remove('-translate-x-full', 'opacity-0'); // Slide in from the left
-      journalSearch2.classList.add('translate-x-0', 'opacity-100'); // Ensure it's fully visible
+      journalSearch2.classList.remove('hidden');
+      journalSearch2.classList.remove('-translate-x-full', 'opacity-0');
+      journalSearch2.classList.add('translate-x-0', 'opacity-100');
 
-      // Focus the input field once it's visible
       searchInput.focus();
-    }, 300); // Delay for journalSearch1's transition (300ms)
+    }, 300);
   }
 
   closeSearch() {
     const journalSearch1 = document.getElementById('journalSearch1');
     const journalSearch2 = document.getElementById('journalSearch2');
 
-    if (!journalSearch1 || !journalSearch2) return; // If either element is missing, stop execution
+    if (!journalSearch1 || !journalSearch2) return;
 
-    // Animate journalSearch2 out (to the right)
     journalSearch2.classList.add('-translate-x-full', 'opacity-0');
     journalSearch2.classList.remove('translate-x-0', 'opacity-100');
 
-    // Wait for journalSearch2 to finish transitioning (300ms), then show journalSearch1
     setTimeout(() => {
-      // Hide journalSearch2 completely after the animation
       journalSearch2.classList.add('hidden');
 
-      // Reveal journalSearch1
       journalSearch1.classList.remove('hidden');
       journalSearch1.classList.remove('translate-x-full', 'opacity-0');
       journalSearch1.classList.add('translate-x-0', 'opacity-100');
-    }, 300); // Adjust the delay based on your transition duration (300ms in this case)
+    }, 300);
   }
   createJournal() {
     const journalStart = document.getElementById('journalStart');
     const journalModal = document.getElementById('journalModal');
     const journalModalInput = document.getElementById('journalModalInput');
+    const tagInput = document.getElementById('tagInput') as HTMLInputElement;
 
     journalStart?.classList.add('hidden');
     journalModal?.classList.add('hidden');
     journalModalInput?.classList.remove('hidden');
-
     this.journalForm.reset();
-    this.recordedAudio = null;
+    this.videoBlob = null;
     this.currentAudioState = 'initialAudio';
+
     this.tagEnter.clear();
+    tagInput.value = '';
   }
 
   onAudioResume() {
@@ -338,23 +361,17 @@ export class JournalComponent implements OnInit {
       this.audioUrl = URL.createObjectURL(this.recordedAudio);
       this.recordedDuration = this.recordingTime;
 
-      //save to local storage
-
       const audioBlob = new Blob(this.recordedChunksAudio, {
         type: 'audio/webm',
       });
       const audioId = `audio_${Date.now()}`;
 
-      // Save the video blob
       await this.audioStorageService.addAudio(audioId, audioBlob);
 
-      // Create a URL for the video blob
       this.audioSrc = URL.createObjectURL(audioBlob);
 
-      // Reset recordedChunksAudio for the next recording
       this.recordedChunksAudio = [];
 
-      // Reload all videos to refresh the display
       this.currentAudioState = 'recordedAudio';
     };
   }
@@ -406,27 +423,21 @@ export class JournalComponent implements OnInit {
     const recordedPlayIcon = document.getElementById('recordedPlayIcon');
     const recordedPauseIcon = document.getElementById('recordedPauseIcon');
 
-    // Toggle the play/pause icons
     recordedPlayIcon?.classList.add('hidden');
     recordedPauseIcon?.classList.remove('hidden');
 
-    // Ensure there's an audio URL
     if (!this.audioUrl) return;
 
-    // Create an audio player instance and start playing
     this.audioPlayer = new Audio(this.audioUrl);
     this.isPlaying = true;
 
     this.audioPlayer.play();
     this.startPlaybackTimer();
 
-    // Listen for when the audio ends
     this.audioPlayer.onended = () => {
-      // Toggle the icons back to show play when audio ends
       recordedPlayIcon?.classList.remove('hidden');
       recordedPauseIcon?.classList.add('hidden');
 
-      // Reset playback state
       this.isPlaying = false;
       this.playbackTime = 0;
     };
@@ -439,7 +450,7 @@ export class JournalComponent implements OnInit {
     audioPlayer.play();
 
     audioPlayer.onended = () => {
-      URL.revokeObjectURL(audioUrl); // Clean up URL object after playback
+      URL.revokeObjectURL(audioUrl);
     };
   }
 
@@ -453,11 +464,11 @@ export class JournalComponent implements OnInit {
   }
 
   onAudioPause() {
-    // const recordingPauseIcon = document.getElementById('recordingPauseIcon');
-    // const recordingResumeIcon = document.getElementById('recordingResumeIcon');
+    const recordingPauseIcon = document.getElementById('recordingPauseIcon');
+    const recordingResumeIcon = document.getElementById('recordingResumeIcon');
 
-    // recordingPauseIcon?.classList.add('hidden');
-    // recordingResumeIcon?.classList.remove('hidden');
+    recordingPauseIcon?.classList.add('hidden');
+    recordingResumeIcon?.classList.remove('hidden');
     this.recorder?.pause();
     this.isPaused = true;
   }
@@ -479,7 +490,7 @@ export class JournalComponent implements OnInit {
     });
   }
 
-  // Video input
+  // ---------------------------------------------Video input---------------------------------------------------
 
   async startRecording() {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -498,26 +509,32 @@ export class JournalComponent implements OnInit {
   stopRecording() {
     this.mediaRecorderVideo.stop();
     this.isRecording = false;
+    this.handleStop();
   }
 
-  private async handleStop() {
-    const videoBlob = new Blob(this.recordedChunks, { type: 'video/webm' });
-    const videoId = `video_${Date.now()}`;
+  handleStop() {
+    this.mediaRecorderVideo.stop();
+    this.mediaRecorderVideo!.onstop = async () => {
+      this.recordedVideo = new Blob(this.recordedChunks, {
+        type: 'video/webm',
+      });
+      this.videoUrl = URL.createObjectURL(this.recordedVideo);
 
-    // Save the video blob
-    await this.videoStorageService.addVideo(videoId, videoBlob);
+      const videoBlob = new Blob(this.recordedChunks, {
+        type: 'video/webm',
+      });
+      const videoId = `video_${Date.now()}`;
 
-    // Create a URL for the video blob
-    this.videoSrc = URL.createObjectURL(videoBlob);
+      await this.videoStorageService.addVideo(videoId, videoBlob);
 
-    // Reset recordedChunks for the next recording
-    this.recordedChunks = [];
+      this.videoStored = URL.createObjectURL(videoBlob);
 
-    // Reload all videos to refresh the display
+      this.recordedChunks = [];
+    };
   }
 
   private async loadAllVideos() {
-    this.allVideos = await this.videoStorageService.getAllVideos(); // Fetch all videos
+    this.allVideos = await this.videoStorageService.getAllVideos();
   }
 
   getVideoUrl(videoBlob: Blob): string {
@@ -525,61 +542,56 @@ export class JournalComponent implements OnInit {
   }
 
   async deleteVideo(id: string) {
-    await this.videoStorageService.deleteVideo(id); // Delete from storage
-    await this.loadAllVideos(); // Reload videos after deletion
+    await this.videoStorageService.deleteVideo(id);
+    await this.loadAllVideos();
   }
   openDeleteConfirmation(id: string) {
-    this.videoToDelete = id; // Set the ID of the video to delete
-    this.showDeleteConfirmation = true; // Show the confirmation modal
+    this.videoToDelete = id;
+    this.showDeleteConfirmation = true;
   }
 
   confirmDelete() {
     if (this.videoToDelete) {
       this.deleteVideo(this.videoToDelete);
     }
-    this.closeDeleteConfirmation(); // Close the modal
+    this.closeDeleteConfirmation();
   }
 
   closeDeleteConfirmation() {
-    this.videoToDelete = null; // Reset the video ID
-    this.showDeleteConfirmation = false; // Hide the modal
+    this.videoToDelete = null;
+    this.showDeleteConfirmation = false;
   }
 
-  // Tag input
+  // ---------------------------------------------------------Tag input------------------------------------------------
 
   addTag() {
     const tagInput = document.getElementById('tagInput') as HTMLInputElement;
     const tag = tagInput.value.trim();
 
     if (tag !== '') {
-      // Add tag to the FormArray
       this.tagEnter.push(new FormControl(tag, Validators.required));
       this.hasInteractedTags = true;
     } else {
       this.hasInteractedTags = true;
     }
 
-    // Clear the input after the tag is added
     tagInput.value = '';
 
-    // Save the tags to localStorage
     this.saveTagsToLocalStorage();
   }
 
   onBlurTag() {
-    this.hasInteractedTags = true; // Set on focus to ensure the user has interacted with the input
+    this.hasInteractedTags = true;
   }
 
   removeTag(index: number): void {
-    this.tagEnter.removeAt(index); // Remove tag from FormArray
+    this.tagEnter.removeAt(index);
 
-    // Save the updated tags to localStorage
     this.saveTagsToLocalStorage();
   }
 
-  // Save the tags from the FormArray to localStorage
   saveTagsToLocalStorage(): void {
-    const tags = this.tagEnter.value; // Get all tags from the form
+    const tags = this.tagEnter.value;
     localStorage.setItem('tags', JSON.stringify(tags));
   }
 
@@ -594,7 +606,6 @@ export class JournalComponent implements OnInit {
   }
 
   async initIndexedDB() {
-    // Create a new IndexedDB instance
     this.dbFiles = await openDB('fileStorageDB', 1, {
       upgrade(dbFiles) {
         if (!dbFiles.objectStoreNames.contains('files')) {
@@ -612,25 +623,21 @@ export class JournalComponent implements OnInit {
     const files = input.files;
 
     if (files) {
-      // Convert FileList to an array before mapping or iterating
       this.fileNames = Array.from(files).map((file) => file.name);
 
-      // Loop over the files using Array.from() to convert FileList to an iterable array
       for (const file of Array.from(files)) {
         const fileData = {
           name: file.name,
           size: file.size,
           type: file.type,
-          content: await this.convertFileToBase64(file), // convert file to Base64
+          content: await this.convertFileToBase64(file),
         };
 
-        // Store the file in IndexedDB
         await this.storeFileInIndexedDB(fileData);
       }
     }
   }
 
-  // Convert file to Base64 for storage
   convertFileToBase64(file: File): Promise<string> {
     return new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -640,7 +647,6 @@ export class JournalComponent implements OnInit {
     });
   }
 
-  // Store file in IndexedDB
   async storeFileInIndexedDB(fileData: any) {
     const tx = this.dbFiles.transaction('files', 'readwrite');
     const store = tx.objectStore('files');
@@ -654,7 +660,6 @@ export class JournalComponent implements OnInit {
       event.previousIndex,
       event.currentIndex
     );
-    // Save the new order to localStorage
     localStorage.setItem('journalOrder', JSON.stringify(this.journalEntries));
   }
   onCancelAddJournal() {
@@ -665,7 +670,7 @@ export class JournalComponent implements OnInit {
     journalModal?.classList.remove('hidden');
   }
 
-  // File Input
+  // -------------------------------------------------File Input-------------------------------------------------------
 
   async initIndexedDBFile() {
     await openDB('fileStorageDB', 1, {
@@ -675,7 +680,6 @@ export class JournalComponent implements OnInit {
     });
   }
 
-  // On file selection
   onFileSelect(event: Event) {
     const input = event.target as HTMLInputElement;
     if (!input.files) return;
@@ -683,56 +687,49 @@ export class JournalComponent implements OnInit {
     for (let i = 0; i < input.files.length; i++) {
       const file = input.files[i];
 
-      // Generate a URL for viewing the file
       const fileUrl = URL.createObjectURL(file);
 
-      // Add new file to the top of the list
       this.files.unshift({ file, fileUrl, progress: 0, isUploading: true });
 
-      const currentFileIndex = 0; // Since we just added it to the top
+      const currentFileIndex = 0;
       this.storeFile(file);
-      this.uploadFile(file, currentFileIndex); // Pass the index of the new file
+      this.uploadFile(file, currentFileIndex);
     }
   }
 
-  // Store the file in IndexedDB
   async storeFile(file: File) {
     const db = await openDB('fileStorageDB', 1);
 
-    // Read the file content as a Data URL
     const reader = new FileReader();
     reader.onload = async () => {
       const fileData = {
         name: file.name,
         type: file.type,
-        content: reader.result, // File content as Data URL
+        content: reader.result,
       };
 
       const tx = db.transaction('files', 'readwrite');
-      await tx.store.add(fileData); // Store file data (name, type, content)
+      await tx.store.add(fileData);
       await tx.done;
 
-      // After storing, reload the stored files
       await this.loadStoredFiles();
     };
-    reader.readAsDataURL(file); // Read file content
+    reader.readAsDataURL(file);
   }
 
-  // Simulate file upload and update progress
   uploadFile(file: File, index: number) {
     const upload$ = this.simulateUpload(file);
 
     upload$.subscribe({
       next: (progress) => {
-        this.files[index].progress = progress; // Update progress for the current file
+        this.files[index].progress = progress;
       },
       complete: () => {
-        this.files[index].isUploading = false; // Mark file as uploaded
+        this.files[index].isUploading = false;
       },
     });
   }
 
-  // Simulated upload (replace with actual API call if needed)
   simulateUpload(file: File): Observable<number> {
     return new Observable((observer) => {
       let progress = 0;
@@ -747,7 +744,6 @@ export class JournalComponent implements OnInit {
     });
   }
 
-  // Remove file from list and IndexedDB
   async removeFile(index: number) {
     const file = this.files[index].file;
     this.files.splice(index, 1);
@@ -760,34 +756,53 @@ export class JournalComponent implements OnInit {
     await this.loadStoredFiles();
   }
 
-  // Return file type icon based on extension (this is just a sample implementation)
   getFileIcon(file: FileUpload) {
-    // For image files, return the data URL to display it
     if (file.file.type.startsWith('image')) {
-      return file.fileUrl; // Use the URL generated during upload
+      return file.fileUrl;
     }
 
-    // For other types of files, return a generic icon
-    return '../../../assets/images/icons/file-icon.png'; // Replace with actual path for non-image files
+    return '../../../assets/images/icons/file-icon.png';
   }
 
   async loadStoredFiles() {
     const db = await openDB('fileStorageDB', 1);
     const tx = db.transaction('files', 'readonly');
     const store = tx.store;
-    const allFiles = await store.getAll(); // Get all stored files
+    const allFiles = await store.getAll();
     await tx.done;
 
-    this.storedFiles = allFiles; // Save them in storedFiles array
+    this.storedFiles = allFiles;
   }
   saveJournalEntry(newJournalEntry: any) {
-    this.journalEntries.push(newJournalEntry); // Add to journalEntries array
-    localStorage.setItem('journalEntries', JSON.stringify(this.journalEntries)); // Save to localStorage
+    let journalOrder = localStorage.getItem('journalOrder');
+
+    this.journalEntries.push(newJournalEntry);
+    let getNewEntry = this.journalEntries[this.journalEntries.length - 1];
+
+    localStorage.setItem('journalEntries', JSON.stringify(this.journalEntries));
+
+    if (journalOrder) {
+      try {
+        let journalOrderArray = JSON.parse(journalOrder);
+
+        journalOrderArray.push(getNewEntry);
+
+        localStorage.setItem('journalOrder', JSON.stringify(journalOrderArray));
+      } catch (e) {
+        console.error('Error parsing journalOrder:', e);
+      }
+    } else {
+      let journalOrderArray = [getNewEntry];
+
+      localStorage.setItem('journalOrder', JSON.stringify(journalOrderArray));
+    }
 
     console.log('Form submitted:', newJournalEntry);
-    this.journalForm.reset(); // Reset the form
-    this.recordedAudio = null; // Clear recorded audio
-    this.currentAudioState = 'initialAudio'; // Reset audio state
+
+    this.journalForm.reset();
+    this.recordedAudio = null;
+    this.videoBlob = null;
+    this.currentAudioState = 'initialAudio';
   }
 
   loadJournalEntries() {
@@ -799,5 +814,12 @@ export class JournalComponent implements OnInit {
 
   displayJournalEntry(index: number) {
     this.selectedEntry = this.journalEntries[index];
+
+    const journalModalInput = document.getElementById('journalModalInput');
+    const journalModal = document.getElementById('journalModal');
+    if (journalModal) {
+      journalModal.classList.remove('hidden');
+      journalModalInput?.classList.add('hidden');
+    }
   }
 }

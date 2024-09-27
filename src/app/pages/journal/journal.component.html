@@ -378,9 +378,10 @@
         <div class="inter-6 text-sm text-gr ay-950">{{ item.title }}:</div>
         <div class="flex gap-2 items-center">
           <div class="inter-5 text-xs text-gray-600">{{ currentDate }}</div>
-          <div class="truncate inter-5 text-xs text-gray-400">
-            {{ item.description }}
-          </div>
+          <div
+            class="truncate inter-5 text-xs text-gray-400"
+            [innerHTML]="item.description.substring(0, 25)"
+          ></div>
         </div>
       </div>
     </div>
@@ -584,21 +585,17 @@
       </div>
     </div>
     <div
-      class="w-full text-gray-900 inter-4 text-md flex flex-col gap-3"
+      class="w-full text-gray-900 inter-4 text-md flex flex-col gap-3 description"
       [innerHTML]="selectedEntry?.description"
     ></div>
 
-    <div class="flex flex-wrap w-full gap-x-6 gap-y-4">
-      <img class="w-64 h-auto" src="../../../assets/images/img1.png" alt="" />
-      <img class="w-64 h-auto" src="../../../assets/images/img2.png" alt="" />
-      <img class="w-64 h-auto" src="../../../assets/images/img3.png" alt="" />
-      <img class="w-64 h-auto" src="../../../assets/images/img4.png" alt="" />
-    </div>
-
     <!----------------------------------------------------------------------------------------------------------------- ---------------------------------------------- Display Recorded Voice ------------------------------------------ ------------------------------------------------------------------------------------------------------------------->
-
     <div *ngIf="selectedEntry?.audio">
-      <audio controls>
+      <h3 class="text-lg font-semibold mb-2">Audio:</h3>
+      <audio
+        class="border border-gray-200 rounded-xl h-20 items-center p-3 w-96"
+        controls
+      >
         <source [src]="selectedEntry?.audio" type="audio/mpeg" />
         Your browser does not support the audio tag.
       </audio>
@@ -606,19 +603,18 @@
 
     <!----------------------------------------------------------------------------------------------------------------- -------------------------------------------------- Video recorder ------------------------------------------------- ------------------------------------------------------------------------------------------------------------------->
 
-    <h3 class="text-lg font-semibold">Videos:</h3>
     <div class="rounded-xl w-96">
+      <h3 *ngIf="selectedEntry?.video" class="text-lg font-semibold">Video:</h3>
       <div class="grid grid-cols-1 gap-4 mt-2">
-        <div *ngFor="let video of allVideos">
+        <div *ngIf="selectedEntry?.video">
           <div class="relative p-4 border border-gray-200 rounded-xl">
             <video
-              [src]="getVideoUrl(video.videoBlob)"
+              [src]="selectedEntry?.video"
               controls
               class="border border-gray-200 rounded-xl"
             ></video>
             <div class="absolute top-8 right-8">
               <svg
-                (click)="openDeleteConfirmation(video.id)"
                 class="w-8 h-8 bg-[#0C111D4D] p-1 rounded-full cursor-pointer hover:bg-[#0C111D] text-white"
                 aria-hidden="true"
                 xmlns="http://www.w3.org/2000/svg"
@@ -753,7 +749,7 @@
                 <div>
                   <svg
                     (click)="removeTag(tagEnter.controls.indexOf(tag))"
-                    class="w-4 h-4 text-gray-400 hover:text-gray-800 dark:text-white cursor-pointer"
+                    class="w-4 h-4 text-gray-400 hover:text-gray-800 cursor-pointer"
                     aria-hidden="true"
                     xmlns="http://www.w3.org/2000/svg"
                     width="24"
