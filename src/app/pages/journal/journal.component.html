@@ -263,7 +263,7 @@
 
 <div
   id="journalSide"
-  class="fixed w-[286px] mt-4 ml-64 pt-2 border-r-[1px] border-r-gray-200 hidden sm:block overflow-y-auto max-h-[90vh] scroll-hide"
+  class="fixed w-[286px] mt-4 ml-64 pt-2 hidden sm:block overflow-y-auto max-h-[90vh] scroll-hide pb-2"
 >
   <div
     id="journalSearch1"
@@ -371,7 +371,8 @@
         *ngFor="let item of journalEntries; let i = index"
         (click)="displayJournalEntry(i)"
         [ngClass]="{
-          'bg-slate-200 hover:bg-slate-200 px-1 rounded': item === selectedEntry
+          'bg-[#dee3eb] hover:bg-slate-200 px-3 -mx-2 rounded':
+            item === selectedEntry
         }"
         cdkDrag
       >
@@ -387,53 +388,15 @@
     </div>
   </div>
 </div>
-<div id="journalStart" class="hidden">
-  <div
-    class="py-4 sm:ml-[542px] mt-12 pt-10 flex flex-col justify-center items-center inter-5 text-xs text-gray-400"
-  >
-    {{ currentDateTime }}
-  </div>
-  <div
-    class="py-4 sm:ml-[542px] flex flex-col justify-center items-center h-[calc(100vh-120px)]"
-  >
-    <div
-      class="flex flex-col justify-center items-center gap-2 hover:cursor-pointer group"
-      (click)="createJournal()"
-    >
-      <div>
-        <svg
-          class="w-6 h-6 text-gray-300 group-hover:text-gray-600"
-          aria-hidden="true"
-          xmlns="http://www.w3.org/2000/svg"
-          width="24"
-          height="24"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M12 7.757v8.486M7.757 12h8.486M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
-          />
-        </svg>
-      </div>
-      <div class="inter-4 text-base text-gray-400 group-hover:text-gray-600">
-        Create your first journal
-      </div>
-    </div>
-  </div>
-</div>
 <div
   id="journalModal"
-  class="py-4 sm:ml-[542px] mt-12 pt-6 flex flex-col justify-center items-center"
+  class="py-4 sm:ml-[542px] mt-12 pt-6 flex flex-col justify-center items-center border-l-[1px] border-l-gray-200"
 >
   <div *ngIf="selectedEntry" class="flex justify-between px-6 py-2 w-full">
     <div class="text-gray-900 inter-4 text-xl">
       {{ selectedEntry.title }}
     </div>
-    <div class="flex items-center gap-4">
+    <div class="flex items-center gap-4 relative">
       <div
         class="flex group gap-2 px-2 py-1 items-center cursor-pointer border border-gray-300 hover:border-gray-500 hover:bg-gray-100 rounded-lg"
       >
@@ -459,7 +422,9 @@
           Share
         </div>
       </div>
-      <button id="dropdownDefaultButton" data-dropdown-toggle="dropdown-ed">
+      <button
+        (click)="onOptionEditDelete(journalEntries.indexOf(selectedEntry))"
+      >
         <svg
           class="w-[24px] h-[24px] text-gray-500 hover:bg-gray-100 rounded-lg hover:border hover:border-gray-500"
           aria-hidden="true"
@@ -476,37 +441,20 @@
             d="M6 12h.01m6 0h.01m5.99 0h.01"
           />
         </svg>
-        <!-- Dropdown menu -->
+      </button>
+      <!-- Dropdown menu -->
+      <div
+        *ngIf="isEditDelete"
+        class="z-10 absolute top-8 right-0 flex-col bg-white rounded-lg dark:bg-gray-700 w-56 shadow-lg shadow-[#10182814]"
+      >
         <div
-          id="dropdown-ed"
-          class="z-10 hidden flex-col bg-white rounded-lg dark:bg-gray-700 w-56 shadow-lg shadow-[#10182814]"
+          (click)="onEditJournalEntry(journalEntries.indexOf(selectedEntry))"
+          class="flex justify-between px-4 py-3 group hover:bg-gray-100 cursor-pointer"
         >
-          <div class="flex justify-between px-4 py-3 group hover:bg-gray-100">
-            <div class="flex gap-2 items-center">
-              <div>
-                <svg
-                  class="w-5 h-5 text-gray-500"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"
-                  />
-                </svg>
-              </div>
-              <div class="inter-5 text-gray-700 text-sm">Edit</div>
-            </div>
+          <div class="flex gap-2 items-center">
             <div>
               <svg
-                class="w-5 h-5 text-[#7F56D9] hidden group-hover:block"
+                class="w-5 h-5 text-gray-500"
                 aria-hidden="true"
                 xmlns="http://www.w3.org/2000/svg"
                 width="24"
@@ -519,60 +467,116 @@
                   stroke-linecap="round"
                   stroke-linejoin="round"
                   stroke-width="2"
-                  d="M5 11.917 9.724 16.5 19 7.5"
+                  d="m14.304 4.844 2.852 2.852M7 7H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-4.5m2.409-9.91a2.017 2.017 0 0 1 0 2.853l-6.844 6.844L8 14l.713-3.565 6.844-6.844a2.015 2.015 0 0 1 2.852 0Z"
                 />
               </svg>
             </div>
+            <div class="inter-5 text-gray-700 text-sm">Edit</div>
           </div>
-          <div class="flex justify-between px-4 py-3 group hover:bg-gray-100">
-            <div class="flex gap-2 items-center">
-              <div>
-                <svg
-                  class="w-[20px] h-[20px] text-gray-500 dark:text-white"
-                  aria-hidden="true"
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="24"
-                  height="24"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z"
-                  />
-                </svg>
-              </div>
-              <div class="inter-5 text-gray-700 text-sm">Delete</div>
-            </div>
-            <div>
-              <svg
-                class="w-5 h-5 text-[#7F56D9] dark:text-white hidden group-hover:block"
-                aria-hidden="true"
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5 11.917 9.724 16.5 19 7.5"
-                />
-              </svg>
-            </div>
+          <div>
+            <svg
+              class="w-5 h-5 text-[#7F56D9] hidden group-hover:block"
+              aria-hidden="true"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M5 11.917 9.724 16.5 19 7.5"
+              />
+            </svg>
           </div>
         </div>
-      </button>
+        <div
+          (click)="onDeleteJournalEntry(journalEntries.indexOf(selectedEntry))"
+          class="flex justify-between px-4 py-3 group hover:bg-gray-100 cursor-pointer"
+        >
+          <div class="flex gap-2 items-center">
+            <div>
+              <svg
+                class="w-[20px] h-[20px] text-gray-500 dark:text-white"
+                aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z"
+                />
+              </svg>
+            </div>
+            <div class="inter-5 text-gray-700 text-sm">Delete</div>
+          </div>
+          <div>
+            <svg
+              class="w-5 h-5 text-[#7F56D9] dark:text-white hidden group-hover:block"
+              aria-hidden="true"
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M5 11.917 9.724 16.5 19 7.5"
+              />
+            </svg>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <p class="inter-5 text-xs text-gray-400 pt-4">{{ currentDateTime }}</p>
-  <div class="w-full flex flex-col gap-6 p-6">
+  @if (!selectedEntry) {
+  <div
+    class="py-4 flex flex-col justify-center items-center h-[calc(100vh-120px)]"
+  >
+    <div
+      class="flex flex-col justify-center items-center gap-2 hover:cursor-pointer group"
+      (click)="createJournal()"
+    >
+      <div>
+        <svg
+          class="w-6 h-6 text-gray-300 group-hover:text-gray-600"
+          aria-hidden="true"
+          xmlns="http://www.w3.org/2000/svg"
+          width="24"
+          height="24"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 7.757v8.486M7.757 12h8.486M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+          />
+        </svg>
+      </div>
+      <div class="inter-4 text-base text-gray-400 group-hover:text-gray-600">
+        Create journal
+      </div>
+    </div>
+  </div>
+  }
+  <div *ngIf="selectedEntry" class="w-full flex flex-col gap-6 p-6">
     <div class="flex gap-[6px]">
       <div class="flex gap-[6px]">
         @for (tag of selectedEntry?.tags; track $index) {
@@ -636,15 +640,37 @@
         </div>
       </div>
     </div>
-    <div class="p-4 flex gap-3 border border-gray-200 rounded-xl">
-      <div>
-        <img class="w-10 h-auto" src="../../../assets/images/pdf.png" alt="" />
-      </div>
-      <div class="flex flex-col">
-        <div class="inter-5 text-gray-700 text-sm">
-          Tech design requirements.pdf
+
+    <div class="flex flex-col gap-[10px]">
+      <h3 *ngIf="selectedEntry?.files.length > 0" class="text-lg font-semibold">
+        Files:
+      </h3>
+      <div
+        *ngFor="let file of selectedEntry?.files; let i = index"
+        class="p-4 flex items-center gap-3 border border-gray-200 rounded-xl"
+      >
+        <div>
+          <img
+            class="w-10 h-auto"
+            [src]="
+              file.fileType === 'image/png'
+                ? '../../../assets/images/icons/image-icon.png'
+                : file.fileType === 'application/pdf'
+                ? '../../../assets/images/icons/pdf.png'
+                : '../../../assets/images/icons/file-icon.png'
+            "
+            alt=""
+          />
         </div>
-        <div class="inter-4 text-gray-600 text-sm">200 KB</div>
+        <div class="flex flex-col">
+          <a class="inter-5 text-gray-700 text-sm" [href]="file.url">
+            {{ file.fileName }}
+          </a>
+          <div class="inter-4 text-gray-600 text-sm">{{ file.fileSize }}</div>
+        </div>
+        <a *ngIf="file.fileUrl" [href]="file.fileUrl" target="_blank">
+          <img [src]="file.fileUrl" alt="Uploaded Image" />
+        </a>
       </div>
     </div>
   </div>
@@ -654,7 +680,7 @@
 
 <div
   id="journalModalInput"
-  class="py-4 sm:ml-[542px] mt-12 pt-6 flex flex-col justify-center items-center hidden"
+  class="py-4 sm:ml-[542px] mt-12 pt-6 flex flex-col justify-center items-center border-l-[1px] border-l-gray-200 hidden"
 >
   <div class="px-6 py-2 inter-4 text-xl text-gray-900 w-full">New Journal</div>
   <div class="flex flex-col px-8 py-6 w-full gap-6">
@@ -670,6 +696,7 @@
             class="py-[10px] px-[14px] w-full border border-gray-200 rounded-xl hover:border-2 hover:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 focus:border-2 inter-4 text-base text-gray-500 transition duration-300"
             placeholder="Enter your title"
             formControlName="title"
+            [ngModel]="selectedEntry?.title"
           />
           @if (title && title.invalid && title.touched) {
           <p class="inter-4 text-red-500 ps-2">Title is required</p>
@@ -683,6 +710,7 @@
             class="w-full border border-gray-200 rounded-md inter-4 text-base text-gray-500 transition duration-300"
             placeholder="Enter your Description"
             formControlName="description"
+            [ngModel]="selectedEntry?.description"
             apiKey="y74gca2ql9thvfv5al10yeeq95ysi1o6bvwa0nz56tpsouf2"
             [init]="{
               plugins: [
@@ -713,6 +741,7 @@
                 class="py-[10px] px-[14px] w-full border border-gray-200 rounded-xl hover:border-2 hover:border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-300 focus:border-blue-500 focus:border-2 inter-4 text-base text-gray-500 transition duration-300"
                 placeholder="Enter your tags"
                 formControlName="tagEnter"
+                [ngModel]="selectedEntry?.tags"
               />
               <svg
                 (click)="addTag()"
@@ -772,16 +801,16 @@
           </div>
         </div>
       </div>
-      <div class="flex w-full gap-6">
+      <div class="flex flex-col md:flex-row w-full gap-6">
         <!-------------------------------------------------------------------------------------------------------- ----------------------------------------------- Voice Recorder ------------------------------------------- --------------------------------------------------------------------------------------------------------->
 
         <div id="voiceRecorder" class="flex flex-col">
+          <div class="inter-5 text-gray-700 text-sm mb-[6px]">Record voice</div>
           <!-- Initial state -->
           @if (currentAudioState === 'initialAudio') {
           <div id="initialState" class="flex flex-col gap-[6px]">
-            <div class="inter-5 text-gray-700 text-sm">Record voice</div>
             <div
-              class="flex flex-col gap-3 items-center justify-center px-6 py-4 border border-gray-200 rounded-xl"
+              class="flex flex-col gap-3 items-center justify-center px-6 py-4 border border-gray-200 rounded-xl w-72"
             >
               <div class="cursor-pointer">
                 <img
@@ -791,7 +820,7 @@
                   class="w-10 h-auto"
                 />
               </div>
-              <div class="text-sm inter-4 text-gray-600">
+              <div class="text-sm inter-4 text-gray-600 text-center">
                 <span
                   (click)="startRecordingAudio()"
                   class="inter-6 text-[#6941C6] text-sm font-semibold cursor-pointer"
@@ -806,7 +835,6 @@
           <!-- Recording state -->
           @if (currentAudioState === 'recordingAudio') {
           <div id="initialState" class="flex flex-col gap-[6px] w-fit">
-            <div class="inter-5 text-gray-700 text-sm">Record voice</div>
             <div
               class="flex flex-row gap-6 justify-center px-16 py-6 border border-gray-200 rounded-xl"
             >
@@ -998,30 +1026,102 @@
             </div>
           </div>
           }
+          <div
+            *ngIf="editMode && selectedEntry"
+            class="mt-4 flex flex-col gap-2"
+          >
+            <div *ngIf="selectedEntry?.audio">
+              <audio
+                class="border border-gray-200 rounded-xl h-20 items-center p-3 w-72"
+                [src]="selectedEntry?.audio"
+                controls
+              ></audio>
+            </div>
+          </div>
         </div>
 
         <!------------------------------------------------------------------------------------------------------- ----------------------------------------- Video Input Section --------------------------------------------- ----------------------------------------------------------------------------------------------------------->
 
         <div id="initialState" class="flex flex-col gap-[6px]">
           <div class="inter-5 text-gray-700 text-sm">Record video</div>
-          <div class="flex flex-col items-center">
+          <div class="flex flex-col">
             <video
               #videoElement
-              class="mb-4 max-w-72"
+              class="mb-4 max-w-72 border border-gray-200 rounded-xl"
               autoplay
               playsinline
+              [ngClass]="{
+                hidden: !isRecording
+              }"
             ></video>
             <div class="flex space-x-4">
               <button
-                class="bg-blue-500 text-white px-4 py-2 rounded"
+                class="rounded"
                 (click)="isRecording ? stopRecording() : startRecording()"
               >
-                {{ isRecording ? "Stop Recording" : "Start Recording" }}
+                <div id="initialState" class="flex flex-col gap-[6px]">
+                  <div
+                    class="flex flex-col gap-3 items-center justify-center px-6 py-4 border border-gray-200 rounded-xl w-72"
+                  >
+                    <div class="cursor-pointer">
+                      <img
+                        [ngClass]="{
+                          hidden: isRecording
+                        }"
+                        src="../../../assets/images/record_video.png"
+                        alt=""
+                        class="w-10 h-auto"
+                      />
+                      <svg
+                        [ngClass]="{
+                          hidden: !isRecording
+                        }"
+                        class="w-8 h-8 p-1 text-[#7F56D9] rounded-full bg-[#F4EBFF] ring-slate-100 ring-4 cursor-pointer"
+                        aria-hidden="true"
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24"
+                        height="24"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <rect
+                          width="12"
+                          height="12"
+                          x="6"
+                          y="6"
+                          stroke="currentColor"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          rx="1"
+                        />
+                      </svg>
+                    </div>
+                    <div class="text-sm inter-4 text-gray-600 text-center">
+                      <span
+                        class="inter-6 text-[#6941C6] text-sm font-semibold cursor-pointer"
+                        >Click</span
+                      >
+                      to
+                      {{
+                        isRecording ? "Stop Recording" : "Start Recording"
+                      }}...
+                    </div>
+                  </div>
+                </div>
               </button>
             </div>
-            <div *ngIf="videoSrc" class="mt-4">
-              <h3 class="text-lg font-semibold">Recorded Video:</h3>
-              <video [src]="videoSrc" controls class="mt-2 max-w-72"></video>
+
+            <div
+              *ngIf="editMode && selectedEntry"
+              class="mt-4 flex flex-col gap-2"
+            >
+              <div *ngIf="selectedEntry?.video">
+                <video
+                  class="rounded-xl max-w-72 border border-gray-200 p-3"
+                  [src]="selectedEntry?.video"
+                  controls
+                ></video>
+              </div>
             </div>
           </div>
         </div>
@@ -1124,6 +1224,40 @@
             </div>
           </div>
         </div>
+        <div
+          class="flex flex-col gap-2 mt-2"
+          *ngIf="editMode && selectedEntry.files.length > 0"
+        >
+          <div
+            *ngFor="let file of selectedEntry?.files; let i = index"
+            class="p-4 flex items-center gap-3 border border-gray-200 rounded-xl"
+          >
+            <div>
+              <img
+                class="w-10 h-auto"
+                [src]="
+                  file.fileType === 'image/png'
+                    ? '../../../assets/images/icons/image-icon.png'
+                    : file.fileType === 'application/pdf'
+                    ? '../../../assets/images/icons/pdf.png'
+                    : '../../../assets/images/icons/file-icon.png'
+                "
+                alt=""
+              />
+            </div>
+            <div class="flex flex-col">
+              <a class="inter-5 text-gray-700 text-sm" [href]="file.url">
+                {{ file.fileName }}
+              </a>
+              <div class="inter-4 text-gray-600 text-sm">
+                {{ file.fileSize }}
+              </div>
+            </div>
+            <a *ngIf="file.fileUrl" [href]="file.fileUrl" target="_blank">
+              <img [src]="file.fileUrl" alt="Uploaded Image" />
+            </a>
+          </div>
+        </div>
       </div>
       <div class="w-full flex justify-end gap-3 pt-4">
         <div>
@@ -1136,11 +1270,20 @@
         </div>
         <div>
           <button
+            *ngIf="!editMode"
             type="submit"
             (click)="onSubmitAddJournal()"
             class="px-4 py-[10px] inter-6 text-sm font-semibold text-white bg-[#7F56D9] border border-[#7F56D9] rounded-lg hover:bg-[#6941C6] hover:border-[#6941C6]"
           >
             Save
+          </button>
+          <button
+            *ngIf="editMode"
+            (click)="updateSelectedEntry()"
+            type="submit"
+            class="px-4 py-[10px] inter-6 text-sm font-semibold text-white bg-[#7F56D9] border border-[#7F56D9] rounded-lg hover:bg-[#6941C6] hover:border-[#6941C6]"
+          >
+            Update
           </button>
         </div>
       </div>

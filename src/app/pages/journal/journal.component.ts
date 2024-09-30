@@ -27,7 +27,6 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { v4 as uuidv4 } from 'uuid';
 import { ActivatedRoute } from '@angular/router';
 import { AudioStorageService } from '../../services/audio-storage.service';
-import { IfStmt } from '@angular/compiler';
 
 interface FileUpload {
   fileUrl: any;
@@ -35,7 +34,12 @@ interface FileUpload {
   progress: number;
   isUploading: boolean;
 }
-
+interface JournalFile {
+  fileName: string;
+  fileType: string;
+  content: string;
+  url: string | null;
+}
 @Component({
   selector: 'app-journal',
   standalone: true,
@@ -52,6 +56,10 @@ interface FileUpload {
   styleUrl: './journal.component.css',
 })
 export class JournalComponent implements OnInit {
+  isEditDelete: boolean = false;
+  editMode: boolean = false;
+
+  editDeleteDropdown: boolean = false;
   currentAudioState: 'initialAudio' | 'recordingAudio' | 'recordedAudio' =
     'initialAudio';
   isPaused = false;
@@ -151,7 +159,7 @@ export class JournalComponent implements OnInit {
   journalForm = new FormGroup({
     title: new FormControl('', [Validators.required]),
     description: new FormControl('', [Validators.required]),
-    tagEnter: new FormArray([], [this.minimumOneTagValidator()]), //all tags will be stored in this array
+    tagEnter: new FormArray([], [this.minimumOneTagValidator()]),
   });
 
   @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
@@ -176,7 +184,6 @@ export class JournalComponent implements OnInit {
       this.privateJson = this.jsonData.private;
     });
 
-    this.loadJournalEntries();
     this.loadStoredFiles();
     this.initIndexedDBFile();
     this.loadTagsFromLocalStorage();
@@ -189,6 +196,7 @@ export class JournalComponent implements OnInit {
     if (savedOrder) {
       this.journalEntries = JSON.parse(savedOrder);
     }
+    this.loadJournalEntries();
   }
 
   preventSubmit(event: Event) {
@@ -226,7 +234,7 @@ export class JournalComponent implements OnInit {
         tags: this.journalForm.value.tagEnter || [],
         audio: null as string | null,
         video: null as string | null,
-        files: null as string | null,
+        files: [] as any[],
       };
 
       const promises: Promise<void>[] = [];
@@ -255,13 +263,31 @@ export class JournalComponent implements OnInit {
         promises.push(videoPromise);
       }
 
+      if (this.files.length > 0) {
+        const filePromises = this.files.map((fileEntry, index) => {
+          return new Promise<void>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              newJournalEntry.files.push({
+                fileName: fileEntry.file.name,
+                fileType: fileEntry.file.type,
+                content: reader.result as string,
+                url: null,
+              });
+              resolve();
+            };
+            reader.readAsDataURL(fileEntry.file);
+          });
+        });
+        promises.push(...filePromises);
+      }
+
       Promise.all(promises).then(() => {
         this.saveJournalEntry(newJournalEntry);
       });
 
       //file input
 
-      console.log('Form submitted:', this.journalForm.value);
       journalModalInput?.classList.add('hidden');
       journalModal?.classList.remove('hidden');
       this.journalForm.reset();
@@ -269,6 +295,7 @@ export class JournalComponent implements OnInit {
       this.recordedAudio = null;
       this.recordedVideo = null;
       this.currentAudioState = 'initialAudio';
+      this.files = [];
     } else {
       this.journalForm.markAllAsTouched();
       return;
@@ -282,11 +309,10 @@ export class JournalComponent implements OnInit {
   openSearch() {
     const journalSearch1 = document.getElementById('journalSearch1');
     const journalSearch2 = document.getElementById('journalSearch2');
-    const searchInput = journalSearch2?.querySelector('input'); // Assuming the input field is inside journalSearch2
+    const searchInput = journalSearch2?.querySelector('input');
 
-    if (!journalSearch1 || !journalSearch2 || !searchInput) return; // If any element is missing, stop execution
+    if (!journalSearch1 || !journalSearch2 || !searchInput) return;
 
-    // Step 1: Animate journalSearch1 out (right to left)
     journalSearch1.classList.add('-translate-x-full', 'opacity-0');
     journalSearch1.classList.remove('translate-x-0', 'opacity-100');
 
@@ -319,12 +345,11 @@ export class JournalComponent implements OnInit {
     }, 300);
   }
   createJournal() {
-    const journalStart = document.getElementById('journalStart');
+    this.editMode = false;
     const journalModal = document.getElementById('journalModal');
     const journalModalInput = document.getElementById('journalModalInput');
     const tagInput = document.getElementById('tagInput') as HTMLInputElement;
 
-    journalStart?.classList.add('hidden');
     journalModal?.classList.add('hidden');
     journalModalInput?.classList.remove('hidden');
     this.journalForm.reset();
@@ -779,8 +804,6 @@ export class JournalComponent implements OnInit {
     this.journalEntries.push(newJournalEntry);
     let getNewEntry = this.journalEntries[this.journalEntries.length - 1];
 
-    localStorage.setItem('journalEntries', JSON.stringify(this.journalEntries));
-
     if (journalOrder) {
       try {
         let journalOrderArray = JSON.parse(journalOrder);
@@ -797,8 +820,6 @@ export class JournalComponent implements OnInit {
       localStorage.setItem('journalOrder', JSON.stringify(journalOrderArray));
     }
 
-    console.log('Form submitted:', newJournalEntry);
-
     this.journalForm.reset();
     this.recordedAudio = null;
     this.videoBlob = null;
@@ -806,20 +827,104 @@ export class JournalComponent implements OnInit {
   }
 
   loadJournalEntries() {
-    const entries = localStorage.getItem('journalEntries');
+    const entries = localStorage.getItem('journalOrder');
     if (entries) {
       this.journalEntries = JSON.parse(entries);
+
+      this.journalEntries.forEach((entry) => {
+        entry.files.forEach((file: JournalFile) => {
+          if (file.content) {
+            const byteString = atob(file.content.split(',')[1]);
+            const mimeString = file.content
+              .split(',')[0]
+              .split(':')[1]
+              .split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+              ia[i] = byteString.charCodeAt(i);
+            }
+            const blob = new Blob([ab], { type: mimeString });
+
+            file.url = URL.createObjectURL(blob);
+          } else {
+            file.url = null;
+          }
+        });
+      });
     }
   }
 
   displayJournalEntry(index: number) {
     this.selectedEntry = this.journalEntries[index];
-
     const journalModalInput = document.getElementById('journalModalInput');
     const journalModal = document.getElementById('journalModal');
     if (journalModal) {
       journalModal.classList.remove('hidden');
       journalModalInput?.classList.add('hidden');
+    }
+  }
+
+  onOptionEditDelete(index: number) {
+    console.log(index);
+    this.isEditDelete = !this.isEditDelete;
+  }
+
+  onDeleteJournalEntry(index: number) {
+    this.isEditDelete = false;
+    window.confirm(
+      `Are you sure you want to delete ${this.journalEntries[index].title}?`
+    )
+      ? this.deleteJournalEntry(index)
+      : null;
+  }
+
+  deleteJournalEntry(index: number) {
+    this.journalEntries.splice(index, 1);
+    localStorage.setItem('journalOrder', JSON.stringify(this.journalEntries));
+  }
+
+  onEditJournalEntry(index: number) {
+    this.editMode = true;
+    const tagInput = document.getElementById('tagInput') as HTMLInputElement;
+    tagInput.value = '';
+    this.tagEnter.clear();
+
+    this.selectedEntry = this.journalEntries[index];
+    console.log(this.selectedEntry);
+
+    const journalModalInput = document.getElementById('journalModalInput');
+    const journalModal = document.getElementById('journalModal');
+    if (journalModal) {
+      journalModal.classList.add('hidden');
+      journalModalInput?.classList.remove('hidden');
+    }
+
+    this.isEditDelete = false;
+  }
+
+  updateSelectedEntry() {
+    const journalModalInput = document.getElementById('journalModalInput');
+    const journalModal = document.getElementById('journalModal');
+
+    const currentEntry = this.journalEntries.findIndex(
+      (entry) => entry.id === this.selectedEntry.id
+    );
+
+    if (currentEntry) {
+      this.journalEntries[currentEntry] = this.selectedEntry;
+      this.selectedEntry.title = this.journalForm.value.title;
+      this.selectedEntry.description = this.journalForm.value.description;
+      this.selectedEntry.tags = this.journalForm.value.tagEnter;
+
+      localStorage.setItem('journalOrder', JSON.stringify(this.journalEntries));
+
+      this.editMode = false;
+
+      if (journalModal) {
+        journalModal.classList.remove('hidden');
+        journalModalInput?.classList.add('hidden');
+      }
     }
   }
 }
