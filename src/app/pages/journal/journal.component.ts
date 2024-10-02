@@ -130,6 +130,7 @@ export class JournalComponent implements OnInit {
     audio: any;
     video: any;
     files: any;
+    created: string;
   }[] = [];
   selectedJournalEntry: {
     id: string;
@@ -139,6 +140,7 @@ export class JournalComponent implements OnInit {
     audio: any;
     video: any;
     files: any;
+    created: string;
   } | null = null;
   selectedEntry: any;
 
@@ -152,6 +154,7 @@ export class JournalComponent implements OnInit {
     audio: any;
     video: any;
     files: any;
+    created: string;
   }) {
     this.selectedJournalEntry = entry;
   }
@@ -235,6 +238,7 @@ export class JournalComponent implements OnInit {
         audio: null as string | null,
         video: null as string | null,
         files: [] as any[],
+        created: new Date().toLocaleString(),
       };
 
       const promises: Promise<void>[] = [];
@@ -911,20 +915,18 @@ export class JournalComponent implements OnInit {
       (entry) => entry.id === this.selectedEntry.id
     );
 
-    if (currentEntry) {
-      this.journalEntries[currentEntry] = this.selectedEntry;
-      this.selectedEntry.title = this.journalForm.value.title;
-      this.selectedEntry.description = this.journalForm.value.description;
-      this.selectedEntry.tags = this.journalForm.value.tagEnter;
+    this.journalEntries[currentEntry] = this.selectedEntry;
+    this.selectedEntry.title = this.journalForm.value.title;
+    this.selectedEntry.description = this.journalForm.value.description;
+    this.selectedEntry.tags = this.journalForm.value.tagEnter;
 
-      localStorage.setItem('journalOrder', JSON.stringify(this.journalEntries));
+    localStorage.setItem('journalOrder', JSON.stringify(this.journalEntries));
 
-      this.editMode = false;
+    this.editMode = false;
 
-      if (journalModal) {
-        journalModal.classList.remove('hidden');
-        journalModalInput?.classList.add('hidden');
-      }
+    if (journalModal) {
+      journalModal.classList.remove('hidden');
+      journalModalInput?.classList.add('hidden');
     }
   }
 }

@@ -351,7 +351,9 @@
     <div class="flex flex-col px-4 py-2 gap-1 rounded-lg bg-gray-100">
       <div class="inter-6 text-sm text-gray-950">New Journal</div>
       <div class="flex gap-2 items-center">
-        <div class="inter-5 text-xs text-gray-600">{{ currentDate }}</div>
+        <div class="inter-5 text-xs text-gray-600">
+          {{ currentDate | date : "yyyy/MM/dd" }}
+        </div>
         <div class="inter-5 text-xs text-gray-400">No additional text</div>
       </div>
     </div>
@@ -367,18 +369,21 @@
       (cdkDropListDropped)="drop($event)"
     >
       <div
-        class="py-2 flex flex-col gap-1 bg-white example-box cursor-pointer hover:bg-gray-100"
+        class="py-2 flex flex-col gap-1 example-box cursor-pointer hover:bg-gray-100"
         *ngFor="let item of journalEntries; let i = index"
         (click)="displayJournalEntry(i)"
         [ngClass]="{
           'bg-[#dee3eb] hover:bg-slate-200 px-3 -mx-2 rounded':
-            item === selectedEntry
+            item === selectedEntry,
+          'bg-white': item !== selectedEntry
         }"
         cdkDrag
       >
         <div class="inter-6 text-sm text-gr ay-950">{{ item.title }}:</div>
         <div class="flex gap-2 items-center">
-          <div class="inter-5 text-xs text-gray-600">{{ currentDate }}</div>
+          <div class="inter-5 text-xs text-gray-600">
+            {{ item.created | date : "yyyy-MM-dd" }}
+          </div>
           <div
             class="truncate inter-5 text-xs text-gray-400"
             [innerHTML]="item.description.substring(0, 25)"
@@ -542,8 +547,8 @@
       </div>
     </div>
   </div>
-  <p class="inter-5 text-xs text-gray-400 pt-4">{{ currentDateTime }}</p>
   @if (!selectedEntry) {
+  <p class="inter-5 text-xs text-gray-400 pt-4">{{ currentDateTime }}</p>
   <div
     class="py-4 flex flex-col justify-center items-center h-[calc(100vh-120px)]"
   >
@@ -577,8 +582,11 @@
   </div>
   }
   <div *ngIf="selectedEntry" class="w-full flex flex-col gap-6 p-6">
+    <p class="inter-5 text-xs text-gray-400 pt-4 text-center">
+      {{ selectedEntry?.created | date : "dd MMM yyyy hh:mm a" }}
+    </p>
     <div class="flex gap-[6px]">
-      <div class="flex gap-[6px]">
+      <div class="flex gap-[6px] flex-wrap">
         @for (tag of selectedEntry?.tags; track $index) {
         <div
           class="py-1 px-[10px] border border-gray-300 rounded-md inter-5 text-sm text-gray-700 cursor-default"
@@ -617,25 +625,6 @@
               controls
               class="border border-gray-200 rounded-xl"
             ></video>
-            <div class="absolute top-8 right-8">
-              <svg
-                class="w-8 h-8 bg-[#0C111D4D] p-1 rounded-full cursor-pointer hover:bg-[#0C111D] text-white"
-                aria-hidden="true"
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z"
-                />
-              </svg>
-            </div>
           </div>
         </div>
       </div>
@@ -1110,17 +1099,37 @@
                 </div>
               </button>
             </div>
-
             <div
-              *ngIf="editMode && selectedEntry"
-              class="mt-4 flex flex-col gap-2"
+              *ngIf="selectedEntry?.video"
+              class="grid grid-cols-1 gap-4 mt-2"
             >
               <div *ngIf="selectedEntry?.video">
-                <video
-                  class="rounded-xl max-w-72 border border-gray-200 p-3"
-                  [src]="selectedEntry?.video"
-                  controls
-                ></video>
+                <div class="relative p-4 border border-gray-200 rounded-xl">
+                  <video
+                    [src]="selectedEntry?.video"
+                    controls
+                    class="border border-gray-200 rounded-xl max-w-72"
+                  ></video>
+                  <div class="absolute top-8 right-8">
+                    <svg
+                      class="w-8 h-8 bg-[#0C111D4D] p-1 rounded-full cursor-pointer hover:bg-[#0C111D] text-white"
+                      aria-hidden="true"
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="24"
+                      height="24"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke="currentColor"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z"
+                      />
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
