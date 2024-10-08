@@ -781,7 +781,7 @@
   <div *ngIf="editMode" class="px-6 py-2 inter-4 text-xl text-gray-900 w-full">
     Edit Journal
   </div>
-  <div class="flex flex-col lg:px-8 px-4 py-6 w-full gap-6">
+  <div class="flex flex-col lg:px-8 px-4 py-6 w-full gap-6 overflow-x-auto">
     <form
       [formGroup]="journalForm"
       (keydown.enter)="preventSubmit($event)"
@@ -1063,7 +1063,7 @@
             <div class="flex flex-col gap-4">
               <div class="flex justify-between items-center">
                 <div class="text-gray-700 inter-5 text-sm">Record 1</div>
-                <div>
+                <!-- <div>
                   <svg
                     class="w-[20px] h-[20px] text-gray-500 dark:text-white cursor-pointer hover:text-gray-700 dark:hover:text-gray-300"
                     aria-hidden="true"
@@ -1081,12 +1081,12 @@
                       d="M5 7h14m-9 3v8m4-8v8M10 3h4a1 1 0 0 1 1 1v3H9V4a1 1 0 0 1 1-1ZM6 7h12v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7Z"
                     />
                   </svg>
-                </div>
+                </div> -->
               </div>
-              <div class="flex gap-3">
-                <div class="flex gap-3 items-center">
+              <div class="flex lg:gap-3 gap-2">
+                <div class="flex lg:gap-3 gap-2 items-center">
                   <div>00:{{ playbackTime | number : "2.0" }}</div>
-                  <div class="w-28 rounded-full h-2 bg-gray-200">
+                  <div class="lg:w-28 w-16 rounded-full h-2 bg-gray-200">
                     <div
                       class="h-2 rounded-full bg-[#7F56D9]"
                       [style.width.%]="(playbackTime / recordedDuration) * 100"
@@ -1115,8 +1115,8 @@
                         />
                       </svg>
                     </div>
-                    <div class="w-[58px] rounded-full h-2 bg-gray-200">
-                      <div class="w-6 h-2 rounded-full bg-[#7F56D9]"></div>
+                    <div class="lg:w-[58px] w-9 rounded-full h-2 bg-gray-200">
+                      <div class="w-5 h-2 rounded-full bg-[#7F56D9]"></div>
                     </div>
                   </div>
                 </div>
@@ -1130,7 +1130,7 @@
           >
             <div *ngIf="selectedEntry?.audio">
               <audio
-                class="border border-gray-200 rounded-xl h-20 items-center p-3 max-w-72 w-full"
+                class="border border-gray-200 rounded-xl h-16 items-center p-[6px] max-w-80 w-full"
                 [src]="selectedEntry?.audio"
                 controls
               ></audio>

@@ -413,6 +413,10 @@ export class JournalComponent implements OnInit {
       this.currentAudioState = 'initialAudio';
       this.files = [];
       this.creatingNewJournal = false;
+      if (this.mobileView) {
+        const journalSide = document.getElementById('journalSide');
+        journalSide?.classList.remove('hidden');
+      }
     } else {
       this.journalForm.markAllAsTouched();
       return;
@@ -821,7 +825,14 @@ export class JournalComponent implements OnInit {
 
     if (this.mobileView) {
       const journalSide = document.getElementById('journalSide');
-      journalSide?.classList.remove('hidden');
+      const journalModal = document.getElementById('journalModal');
+      if (!this.creatingNewJournal) {
+        journalModal?.classList.remove('hidden');
+      }
+
+      if (this.creatingNewJournal) {
+        journalSide?.classList.remove('hidden');
+      }
     }
 
     this.creatingNewJournal = false;
