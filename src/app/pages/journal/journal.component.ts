@@ -1,6 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  HostListener,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
 import {
   FormsModule,
   ReactiveFormsModule,
@@ -56,6 +62,8 @@ interface JournalFile {
   styleUrl: './journal.component.css',
 })
 export class JournalComponent implements OnInit {
+  mobileView: boolean = false;
+  creatingNewJournal: boolean = false;
   isEditDelete: boolean = false;
   editMode: boolean = false;
 
@@ -200,6 +208,110 @@ export class JournalComponent implements OnInit {
       this.journalEntries = JSON.parse(savedOrder);
     }
     this.loadJournalEntries();
+
+    this.checkScreenWidth();
+  }
+  @HostListener('window:resize', ['$event'])
+  onResize(event: any) {
+    this.checkScreenWidth();
+  }
+
+  checkScreenWidth() {
+    this.mobileView = window.innerWidth <= 1023;
+    if (this.mobileView) {
+      this.mobileView = true;
+    }
+  }
+
+  toggleSidebar() {
+    const logoSidebar = document.getElementById('logoSidebar');
+    const appSidebar = document.getElementById('appSidebar');
+    const appSidebarSmall = document.getElementById('appSidebarSmall');
+    const journalSide = document.getElementById('journalSide');
+    const journalModal = document.getElementById('journalModal');
+    const searchBar = document.getElementById('searchBar');
+    const journalModalInput = document.getElementById('journalModalInput');
+
+    if (logoSidebar) {
+      logoSidebar.classList.add('w-9');
+    }
+
+    if (appSidebar) {
+      appSidebar.classList.add('hidden');
+    }
+
+    if (appSidebarSmall) {
+      appSidebarSmall.classList.remove('hidden');
+    }
+
+    if (journalSide) {
+      journalSide.classList.remove('lg:ml-64');
+      journalSide.classList.add('lg:ml-10');
+    }
+
+    if (journalModal) {
+      journalModal.classList.remove('lg:ml-[542px]');
+      journalModal.classList.add('lg:ml-[332px]');
+    }
+    if (searchBar) {
+      searchBar.classList.remove('ps-72');
+      searchBar.classList.add('ps-12');
+    }
+    if (journalModalInput) {
+      journalModalInput.classList.remove('lg:ml-[542px]');
+      journalModalInput.classList.add('lg:ml-[332px]');
+    }
+  }
+
+  showAppSidebar() {
+    const logoSidebar = document.getElementById('logoSidebar');
+    const appSidebar = document.getElementById('appSidebar');
+    const appSidebarSmall = document.getElementById('appSidebarSmall');
+
+    const journalModal = document.getElementById('journalModal');
+    const journalSide = document.getElementById('journalSide');
+    const searchBar = document.getElementById('searchBar');
+    const journalModalInput = document.getElementById('journalModalInput');
+
+    if (logoSidebar) {
+      logoSidebar.classList.remove('w-9');
+    }
+    if (appSidebar) {
+      appSidebar.classList.remove('hidden');
+    }
+    if (appSidebarSmall) {
+      appSidebarSmall.classList.add('hidden');
+    }
+    if (journalSide) {
+      journalSide.classList.remove('lg:ml-10');
+      journalSide.classList.add('ml-64');
+    }
+    if (journalModal) {
+      journalModal.classList.remove('lg:ml-[332px]');
+      journalModal.classList.add('lg:ml-[542px]');
+    }
+    if (searchBar) {
+      searchBar.classList.remove('ps-12');
+      searchBar.classList.add('ps-72');
+    }
+    if (journalModalInput) {
+      journalModalInput.classList.remove('lg:ml-[332px]');
+      journalModalInput.classList.add('lg:ml-[542px]');
+    }
+  }
+
+  goBackJournalMobile() {
+    if (this.mobileView) {
+      const journalModal = document.getElementById('journalModal');
+      const journalSide = document.getElementById('journalSide');
+
+      if (journalModal) {
+        journalModal.classList.add('hidden');
+      }
+      if (journalSide) {
+        journalSide.classList.remove('hidden');
+      }
+    }
   }
 
   preventSubmit(event: Event) {
@@ -238,7 +350,7 @@ export class JournalComponent implements OnInit {
         audio: null as string | null,
         video: null as string | null,
         files: [] as any[],
-        created: new Date().toLocaleString(),
+        created: new Date(),
       };
 
       const promises: Promise<void>[] = [];
@@ -293,13 +405,14 @@ export class JournalComponent implements OnInit {
       //file input
 
       journalModalInput?.classList.add('hidden');
-      journalModal?.classList.remove('hidden');
+      journalModal?.classList.remove('lg:hidden');
       this.journalForm.reset();
       this.recordingTime = 0;
       this.recordedAudio = null;
       this.recordedVideo = null;
       this.currentAudioState = 'initialAudio';
       this.files = [];
+      this.creatingNewJournal = false;
     } else {
       this.journalForm.markAllAsTouched();
       return;
@@ -349,19 +462,27 @@ export class JournalComponent implements OnInit {
     }, 300);
   }
   createJournal() {
+    this.creatingNewJournal = true;
     this.editMode = false;
     const journalModal = document.getElementById('journalModal');
     const journalModalInput = document.getElementById('journalModalInput');
     const tagInput = document.getElementById('tagInput') as HTMLInputElement;
 
-    journalModal?.classList.add('hidden');
+    journalModal?.classList.add('lg:hidden');
     journalModalInput?.classList.remove('hidden');
+
+    if (this.mobileView) {
+      const journalSide = document.getElementById('journalSide');
+      journalSide?.classList.add('hidden');
+    }
+
     this.journalForm.reset();
     this.videoBlob = null;
     this.currentAudioState = 'initialAudio';
 
     this.tagEnter.clear();
     tagInput.value = '';
+    this.selectedEntry = null;
   }
 
   onAudioResume() {
@@ -696,7 +817,14 @@ export class JournalComponent implements OnInit {
     const journalModalInput = document.getElementById('journalModalInput');
 
     journalModalInput?.classList.add('hidden');
-    journalModal?.classList.remove('hidden');
+    journalModal?.classList.remove('lg:hidden');
+
+    if (this.mobileView) {
+      const journalSide = document.getElementById('journalSide');
+      journalSide?.classList.remove('hidden');
+    }
+
+    this.creatingNewJournal = false;
   }
 
   // -------------------------------------------------File Input-------------------------------------------------------
@@ -802,6 +930,27 @@ export class JournalComponent implements OnInit {
 
     this.storedFiles = allFiles;
   }
+
+  deleteFileFromJournalEntry(journalId: string, fileIndex: number) {
+    const journalEntryIndex = this.journalEntries.findIndex(
+      (entry) => entry.id === journalId
+    );
+
+    if (journalEntryIndex === -1) {
+      console.error('Journal entry not found');
+      return;
+    }
+
+    const journalEntry = this.journalEntries[journalEntryIndex];
+
+    journalEntry.files.splice(fileIndex, 1);
+
+    this.journalEntries[journalEntryIndex] = journalEntry;
+    localStorage.setItem('journalOrder', JSON.stringify(this.journalEntries));
+
+    this.loadJournalEntries();
+  }
+
   saveJournalEntry(newJournalEntry: any) {
     let journalOrder = localStorage.getItem('journalOrder');
 
@@ -860,17 +1009,26 @@ export class JournalComponent implements OnInit {
   }
 
   displayJournalEntry(index: number) {
+    this.creatingNewJournal = false;
     this.selectedEntry = this.journalEntries[index];
     const journalModalInput = document.getElementById('journalModalInput');
     const journalModal = document.getElementById('journalModal');
     if (journalModal) {
-      journalModal.classList.remove('hidden');
+      journalModal.classList.remove('lg:hidden');
       journalModalInput?.classList.add('hidden');
+    }
+    if (this.mobileView) {
+      const journalSide = document.getElementById('journalSide');
+      if (journalModal) {
+        journalModal.classList.remove('hidden');
+      }
+      if (journalSide) {
+        journalSide.classList.add('hidden');
+      }
     }
   }
 
   onOptionEditDelete(index: number) {
-    console.log(index);
     this.isEditDelete = !this.isEditDelete;
   }
 
@@ -886,24 +1044,29 @@ export class JournalComponent implements OnInit {
   deleteJournalEntry(index: number) {
     this.journalEntries.splice(index, 1);
     localStorage.setItem('journalOrder', JSON.stringify(this.journalEntries));
+    this.loadJournalEntries();
+    window.location.reload();
   }
 
   onEditJournalEntry(index: number) {
+    const journalModalInput = document.getElementById('journalModalInput');
+    const journalModal = document.getElementById('journalModal');
+    if (journalModal) {
+      journalModal.classList.add('lg:hidden');
+      journalModalInput?.classList.remove('hidden');
+    }
+
+    if (this.mobileView) {
+      const journalModal = document.getElementById('journalModal');
+      journalModal?.classList.add('hidden');
+    }
+
     this.editMode = true;
     const tagInput = document.getElementById('tagInput') as HTMLInputElement;
     tagInput.value = '';
     this.tagEnter.clear();
 
     this.selectedEntry = this.journalEntries[index];
-    console.log(this.selectedEntry);
-
-    const journalModalInput = document.getElementById('journalModalInput');
-    const journalModal = document.getElementById('journalModal');
-    if (journalModal) {
-      journalModal.classList.add('hidden');
-      journalModalInput?.classList.remove('hidden');
-    }
-
     this.isEditDelete = false;
   }
 
@@ -911,22 +1074,84 @@ export class JournalComponent implements OnInit {
     const journalModalInput = document.getElementById('journalModalInput');
     const journalModal = document.getElementById('journalModal');
 
-    const currentEntry = this.journalEntries.findIndex(
+    const currentEntryIndex = this.journalEntries.findIndex(
       (entry) => entry.id === this.selectedEntry.id
     );
-
-    this.journalEntries[currentEntry] = this.selectedEntry;
-    this.selectedEntry.title = this.journalForm.value.title;
-    this.selectedEntry.description = this.journalForm.value.description;
-    this.selectedEntry.tags = this.journalForm.value.tagEnter;
-
-    localStorage.setItem('journalOrder', JSON.stringify(this.journalEntries));
-
-    this.editMode = false;
-
-    if (journalModal) {
-      journalModal.classList.remove('hidden');
-      journalModalInput?.classList.add('hidden');
+    if (currentEntryIndex === -1) {
+      console.error('Journal entry not found');
+      return;
     }
+
+    const updatedJournalEntry = { ...this.selectedEntry };
+
+    updatedJournalEntry.title = this.journalForm.value.title;
+    updatedJournalEntry.description = this.journalForm.value.description;
+    updatedJournalEntry.tags = this.journalForm.value.tagEnter;
+
+    const promises: Promise<void>[] = [];
+
+    if (this.recordedAudio) {
+      const audioPromise = new Promise<void>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          updatedJournalEntry.audio = reader.result as string;
+          resolve();
+        };
+        reader.readAsDataURL(this.recordedAudio);
+      });
+      promises.push(audioPromise);
+    }
+
+    if (this.recordedVideo) {
+      const videoPromise = new Promise<void>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          updatedJournalEntry.video = reader.result as string;
+          resolve();
+        };
+        reader.readAsDataURL(this.recordedVideo);
+      });
+      promises.push(videoPromise);
+    }
+
+    if (this.files.length > 0) {
+      const filePromises = this.files.map((fileEntry) => {
+        return new Promise<void>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            updatedJournalEntry.files.push({
+              fileName: fileEntry.file.name,
+              fileType: fileEntry.file.type,
+              content: reader.result as string,
+              url: null,
+            });
+            resolve();
+          };
+          reader.readAsDataURL(fileEntry.file);
+        });
+      });
+      promises.push(...filePromises);
+    }
+
+    Promise.all(promises).then(() => {
+      this.journalEntries[currentEntryIndex] = updatedJournalEntry;
+
+      localStorage.setItem('journalOrder', JSON.stringify(this.journalEntries));
+
+      this.editMode = false;
+      this.journalForm.reset();
+      this.recordedAudio = null;
+      this.recordedVideo = null;
+      this.files = [];
+      this.currentAudioState = 'initialAudio';
+
+      if (journalModal) {
+        journalModal.classList.remove('lg:hidden');
+        journalModalInput?.classList.add('hidden');
+      }
+      if (this.mobileView) {
+        journalModal?.classList.remove('hidden');
+      }
+    });
   }
 }
