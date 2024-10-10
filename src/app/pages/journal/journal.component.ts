@@ -151,6 +151,7 @@ export class JournalComponent implements OnInit {
     created: string;
   } | null = null;
   selectedEntry: any;
+  flag: string = '';
 
   sanitizedDescription: SafeHtml | null = null;
 
@@ -644,7 +645,21 @@ export class JournalComponent implements OnInit {
     });
   }
 
-  // ---------------------------------------------Video input---------------------------------------------------
+  deleteAudio(entry: any) {
+    let findIndexAudio = this.journalEntries.findIndex(
+      (entries) => entries.id == this.selectedEntry.id
+    );
+    let removeEntriesAudio = entry;
+    removeEntriesAudio.audio = null;
+    this.closeDeleteConfirmation();
+    console.log('findIndexAudio', removeEntriesAudio);
+    if (findIndexAudio != -1) {
+      this.journalEntries.splice(findIndexAudio, 1, removeEntriesAudio);
+      localStorage.setItem('journalOrder', JSON.stringify(this.journalEntries));
+    }
+  }
+
+  // ---------------------------------------------  Video input  ---------------------------------------------------
 
   async startRecording() {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -699,21 +714,40 @@ export class JournalComponent implements OnInit {
     await this.videoStorageService.deleteVideo(id);
     await this.loadAllVideos();
   }
-  openDeleteConfirmation(id: string) {
-    this.videoToDelete = id;
+  openDeleteConfirmation(entry: any, isFlag: string) {
+    // this.videoToDelete = id;
+    this.flag = isFlag;
     this.showDeleteConfirmation = true;
   }
 
-  confirmDelete() {
-    if (this.videoToDelete) {
-      this.deleteVideo(this.videoToDelete);
+  confirmDelete(entry: any) {
+    if (this.flag === '') return;
+
+    if (this.flag === 'video') {
+      let findIndex = this.journalEntries.findIndex(
+        (entries) => entries.id == this.selectedEntry.id
+      );
+      let removeEntries = entry;
+      removeEntries.video = null;
+      this.closeDeleteConfirmation();
+      console.log('findIndex', removeEntries);
+      if (findIndex != -1) {
+        this.journalEntries.splice(findIndex, 1, removeEntries);
+        localStorage.setItem(
+          'journalOrder',
+          JSON.stringify(this.journalEntries)
+        );
+      }
+      return;
     }
-    this.closeDeleteConfirmation();
+    if (this.flag === 'audio') {
+      this.deleteAudio(this.selectedEntry);
+    }
   }
 
   closeDeleteConfirmation() {
-    this.videoToDelete = null;
     this.showDeleteConfirmation = false;
+    this.flag = '';
   }
 
   // ---------------------------------------------------------Tag input------------------------------------------------

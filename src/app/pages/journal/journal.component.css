@@ -48,13 +48,13 @@
 
 ::ng-deep .description img {
   border-radius: 12px;
+  object-fit: cover;
 }
 ::ng-deep .description p {
   display: flex;
-  flex-wrap: wrap;
-  row-gap: 16px;
   column-gap: 24px;
-  align-items: baseline;
+  row-gap: 16px;
+  flex-wrap: wrap;
 }
 
 audio::-webkit-media-controls-panel {
@@ -68,11 +68,11 @@ audio::-webkit-media-controls-play-button {
 }
 audio::-webkit-media-controls-current-time-display {
   color: #344054;
-  padding-inline-start: 10px;
+  padding-inline-start: 8px;
 }
 audio::-webkit-media-controls-time-remaining-display {
   color: #344054;
-  padding-inline-end: 6px;
+  padding-inline-end: 2px;
 }
 audio::-webkit-media-controls-timeline {
   border-radius: 40px;
@@ -85,4 +85,5 @@ audio::-webkit-media-controls-volume-slider {
 }
 audio::-webkit-media-controls-mute-button {
   border-radius: 50%;
+  padding-inline: 0px;
 }
