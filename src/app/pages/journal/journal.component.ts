@@ -33,6 +33,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { v4 as uuidv4 } from 'uuid';
 import { ActivatedRoute } from '@angular/router';
 import { AudioStorageService } from '../../services/audio-storage.service';
+import jsPDF from 'jspdf';
 
 interface FileUpload {
   fileUrl: any;
@@ -154,6 +155,8 @@ export class JournalComponent implements OnInit {
   flag: string = '';
 
   sanitizedDescription: SafeHtml | null = null;
+
+  whatsAppURL: any;
 
   onSelectJournalEntry(entry: {
     id: string;
@@ -1071,6 +1074,7 @@ export class JournalComponent implements OnInit {
         journalSide.classList.add('hidden');
       }
     }
+    this.whatsAppURL = `https://wa.me/?text=Check out this journal entry: Title : ${this.journalEntries[index].title}`;
   }
 
   onOptionEditDelete(index: number) {
@@ -1198,5 +1202,174 @@ export class JournalComponent implements OnInit {
         journalModal?.classList.remove('hidden');
       }
     });
+  }
+
+  generatePDF(entry: any) {
+    const doc = new jsPDF();
+
+    let findIndex = this.journalEntries.findIndex(
+      (entries) => entries.id === this.selectedEntry.id
+    );
+
+    const data = this.journalEntries[findIndex];
+    console.log('data', data);
+
+    // Check if data is not null
+    if (!data) {
+      console.error('No journal entry selected!');
+      return; // Exit the function if data is null
+    }
+
+    let currentY = 10; // Start position for vertical stacking
+
+    // Add title
+    doc.setFontSize(18);
+    doc.text(data.title, 10, currentY);
+    currentY += 10; // Add some space after the title
+
+    // Add tags and handle multi-line if needed
+    if (data.tags && data.tags.length > 0) {
+      const tagsText = `Tags: ${data.tags.join(', ')}`;
+      doc.setFontSize(12);
+      const splitTags = doc.splitTextToSize(tagsText, 180); // Adjust the width based on PDF
+      doc.text(splitTags, 10, currentY);
+      currentY += splitTags.length * 10; // Adjust position based on the number of lines
+    }
+
+    // Add description in full width
+    if (data.description) {
+      const tempElement = document.createElement('div');
+      tempElement.innerHTML = data.description;
+
+      // Style the temporary element
+      const style = document.createElement('style');
+      style.innerHTML = `
+      img {
+        max-width: 100%; /* Limit the image width */
+        height: auto; /* Maintain aspect ratio */
+      }
+    `;
+      document.head.appendChild(style);
+      tempElement.appendChild(style);
+
+      document.body.appendChild(tempElement);
+
+      doc.html(tempElement, {
+        callback: (doc) => {
+          if (document.body.contains(tempElement)) {
+            document.body.removeChild(tempElement);
+          }
+          if (document.head.contains(style)) {
+            document.head.removeChild(style); // Remove the style after use
+          }
+          currentY += 10; // Move down after the description
+
+          // Check if there are images to add
+          this.addImagesToPDF(data.files, doc, currentY);
+        },
+        x: 10,
+        y: currentY,
+        html2canvas: {
+          scale: 0.2,
+        },
+      });
+    } else {
+      console.error('No description available!');
+    }
+  }
+
+  // Function to add images to the PDF
+  addImagesToPDF(files: JournalFile[], doc: jsPDF, currentY: number) {
+    if (files && files.length > 0) {
+      const imagePromises: Promise<void>[] = files.map((file: JournalFile) => {
+        return new Promise<void>((resolve) => {
+          if (file.content) {
+            const img = new Image();
+            img.src = file.content;
+
+            img.onload = () => {
+              const desiredWidth = 25; // Adjust this value as needed
+              const desiredHeight = (img.height / img.width) * desiredWidth; // Maintain aspect ratio
+
+              currentY += 10; // Add some space before each image
+              if (
+                currentY + desiredHeight >
+                doc.internal.pageSize.height - 20
+              ) {
+                doc.addPage(); // Add new page if image exceeds the current page height
+                currentY = 10; // Reset Y position for new page
+              }
+
+              // Add image to PDF
+              doc.addImage(
+                img,
+                'JPEG',
+                10,
+                currentY,
+                desiredWidth,
+                desiredHeight
+              ); // Add image with new size
+              currentY += desiredHeight; // Update Y position after image
+              resolve(); // Resolve the promise after the image is added
+            };
+          } else {
+            resolve(); // Resolve if no image
+          }
+        });
+      });
+
+      // Wait for all images to load before saving the PDF
+      Promise.all(imagePromises).then(() => {
+        const pdfBlob = doc.output('blob'); // Get the PDF as a blob
+        this.uploadPDF(pdfBlob); // Call the upload function
+      });
+    } else {
+      const pdfBlob = doc.output('blob'); // Get the PDF as a blob if no images
+      this.uploadPDF(pdfBlob); // Call the upload function
+    }
+  }
+
+  uploadPDF(pdfBlob: Blob) {
+    const formData = new FormData();
+    formData.append('file', pdfBlob, 'journal.pdf');
+    const uploadUrl = 'http://localhost:3000/upload'; // Correct endpoint
+
+    fetch(uploadUrl, {
+      method: 'POST',
+      body: formData,
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then((data) => {
+        console.log('File available at:', data.url); // Log server response URL
+        if (this.selectedEntry) {
+          this.selectedEntry.blobUrl = data.url; // Assign the URL to blobUrl property
+          console.log('selectedEntry:', this.selectedEntry); // Log entire object
+
+          // Share the PDF on WhatsApp
+          this.shareOnWhatsApp(this.selectedEntry.blobUrl); // Share after setting the URL
+        } else {
+          console.error('selectedEntry is undefined');
+        }
+      })
+      .catch((error) => {
+        console.error('Upload failed:', error);
+      });
+  }
+
+  shareOnWhatsApp(pdfUrl: string) {
+    if (!pdfUrl) {
+      console.error('No URL provided for sharing on WhatsApp');
+      return;
+    }
+
+    const whatsappUrl = `https://wa.me/?text=Check%20out%20this%20journal%20PDF!%20${encodeURIComponent(
+      pdfUrl
+    )}`;
+    window.open(whatsappUrl, '_blank');
   }
 }

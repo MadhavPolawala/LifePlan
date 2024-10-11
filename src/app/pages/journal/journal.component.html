@@ -506,7 +506,8 @@
       {{ selectedEntry.title }}
     </div>
     <div class="flex items-center gap-4 relative">
-      <div
+      <a
+        (click)="generatePDF(selectedEntry)"
         class="flex group gap-2 px-2 py-1 items-center cursor-pointer border border-gray-300 hover:border-gray-500 hover:bg-gray-100 rounded-lg"
       >
         <div>
@@ -530,7 +531,7 @@
         <div class="inter-5 text-xs text-gray-500 group-hover:text-gray-700">
           Share
         </div>
-      </div>
+      </a>
       <button
         (click)="onOptionEditDelete(journalEntries.indexOf(selectedEntry))"
       >
@@ -1446,7 +1447,7 @@
 <!------------------------------------------------------------------------------------------------------------- --------------------------------------------- Confirm Deletion -------------------------------------------------- ---------------------------------------------------------------------------------------------------------->
 <div
   *ngIf="showDeleteConfirmation"
-  class="fixed inset-0 flex items-center justify-center z-50"
+  class="fixed flex items-center justify-center z-50"
 >
   <div class="bg-white rounded-lg shadow-lg p-5">
     <h3 class="text-lg font-semibold">Confirm Deletion</h3>

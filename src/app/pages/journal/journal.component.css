@@ -47,10 +47,22 @@
 }
 
 ::ng-deep .description img {
+  width: 268px;
+  height: auto;
   border-radius: 12px;
   object-fit: cover;
+  border: 1px solid #eaecf0;
 }
-::ng-deep .description p {
+::ng-deep .description p,
+::ng-deep .description h1,
+::ng-deep .description h2,
+::ng-deep .description h3,
+::ng-deep .description h4,
+::ng-deep .description h5,
+::ng-deep .description h6,
+::ng-deep .description span,
+::ng-deep .description div,
+::ng-deep .description strong {
   display: flex;
   column-gap: 24px;
   row-gap: 16px;
@@ -86,4 +98,11 @@ audio::-webkit-media-controls-volume-slider {
 audio::-webkit-media-controls-mute-button {
   border-radius: 50%;
   padding-inline: 0px;
+}
+
+@media (max-width: 480px) {
+  ::ng-deep .description img {
+    width: 100%;
+    height: auto;
+  }
 }
