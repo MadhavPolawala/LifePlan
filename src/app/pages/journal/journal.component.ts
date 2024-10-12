@@ -63,12 +63,14 @@ interface JournalFile {
   styleUrl: './journal.component.css',
 })
 export class JournalComponent implements OnInit {
+  newPageModal: boolean = false;
+  pagesArray: any[] = [];
+  pageEditDelete: boolean = false;
   mobileView: boolean = false;
   creatingNewJournal: boolean = false;
   isEditDelete: boolean = false;
   editMode: boolean = false;
 
-  editDeleteDropdown: boolean = false;
   currentAudioState: 'initialAudio' | 'recordingAudio' | 'recordedAudio' =
     'initialAudio';
   isPaused = false;
@@ -177,6 +179,11 @@ export class JournalComponent implements OnInit {
     tagEnter: new FormArray([], [this.minimumOneTagValidator()]),
   });
 
+  newPageForm = new FormGroup({
+    pageName: new FormControl('', [Validators.required]),
+    pageIcon: new FormControl('', [Validators.required]),
+  });
+
   @ViewChild('videoElement') videoElement!: ElementRef<HTMLVideoElement>;
 
   constructor(
@@ -196,8 +203,8 @@ export class JournalComponent implements OnInit {
       this.jsonData = data;
       this.navbarJson = this.jsonData.navbar;
       this.sharedJson = this.jsonData.shared;
-      this.privateJson = this.jsonData.private;
     });
+    this.pagesArray = JSON.parse(localStorage.getItem('pages') || '[]');
 
     this.loadStoredFiles();
     this.initIndexedDBFile();
@@ -225,6 +232,18 @@ export class JournalComponent implements OnInit {
     if (this.mobileView) {
       this.mobileView = true;
     }
+  }
+
+  createNewPage() {
+    this.newPageForm.reset();
+    this.newPageModal = true;
+  }
+  closeNewPageModal() {
+    this.newPageModal = false;
+  }
+
+  openOption() {
+    this.pageEditDelete = !this.pageEditDelete;
   }
 
   toggleSidebar() {
@@ -332,6 +351,40 @@ export class JournalComponent implements OnInit {
 
   get tagEnter() {
     return this.journalForm.get('tagEnter') as FormArray;
+  }
+
+  get pageName() {
+    return this.newPageForm.get('pageName');
+  }
+
+  get pageIcon() {
+    return this.newPageForm.get('pageIcon');
+  }
+
+  onAddNewPage() {
+    if (this.newPageForm.valid) {
+      this.newPageModal = false;
+      console.log(this.newPageForm.value);
+      const newPage = {
+        id: uuidv4(),
+        name: this.newPageForm.value.pageName,
+        icon: this.newPageForm.value.pageIcon,
+        created: new Date().toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: true,
+        }),
+      };
+
+      this.pagesArray.push(newPage);
+      localStorage.setItem('pages', JSON.stringify(this.pagesArray));
+    }
+    if (this.newPageForm.invalid) {
+      this.newPageForm.markAllAsTouched();
+    }
   }
 
   minimumOneTagValidator(): ValidatorFn {
@@ -1245,8 +1298,11 @@ export class JournalComponent implements OnInit {
       const style = document.createElement('style');
       style.innerHTML = `
       img {
-        max-width: 100%; /* Limit the image width */
-        height: auto; /* Maintain aspect ratio */
+        max-width: 100%; 
+        height: auto; 
+        display: block; 
+        margin: 0 auto;
+        margin-bottom: 10px;
       }
     `;
       document.head.appendChild(style);
