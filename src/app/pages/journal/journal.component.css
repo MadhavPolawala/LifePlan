@@ -100,9 +100,32 @@ audio::-webkit-media-controls-mute-button {
   padding-inline: 0px;
 }
 
-@media (max-width: 480px) {
+::ng-deep .emoji-mart-preview {
+  height: 45px;
+}
+::ng-deep .emoji-mart-scroll {
+  height: 150px;
+}
+::ng-deep .emoji-mart {
+  width: 440px !important;
+}
+
+::ng-deep .emoji-mart-search-icon {
+  position: absolute;
+  top: 8px;
+  right: 11px;
+  z-index: 2;
+  padding: 2px 5px 1px;
+  border: none;
+  background: none;
+}
+
+@media (max-width: 500px) {
   ::ng-deep .description img {
     width: 100%;
     height: auto;
+  }
+  ::ng-deep .emoji-mart {
+    width: 100% !important;
   }
 }

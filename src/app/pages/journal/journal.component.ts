@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import {
   Component,
+  CUSTOM_ELEMENTS_SCHEMA,
   ElementRef,
   HostListener,
   OnInit,
@@ -26,7 +27,7 @@ import {
   DragDropModule,
 } from '@angular/cdk/drag-drop';
 import { EditorModule } from '@tinymce/tinymce-angular';
-import { from, Observable } from 'rxjs';
+import { findIndex, from, Observable } from 'rxjs';
 import { FileSizePipe } from '../../file-size.pipe';
 import { VideoStorageService } from '../../services/video-storage.service';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
@@ -34,7 +35,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ActivatedRoute } from '@angular/router';
 import { AudioStorageService } from '../../services/audio-storage.service';
 import jsPDF from 'jspdf';
-
+import { PickerComponent } from '@ctrl/ngx-emoji-mart';
 interface FileUpload {
   fileUrl: any;
   file: File;
@@ -58,6 +59,7 @@ interface JournalFile {
     DragDropModule,
     EditorModule,
     FileSizePipe,
+    PickerComponent,
   ],
   templateUrl: './journal.component.html',
   styleUrl: './journal.component.css',
@@ -65,7 +67,11 @@ interface JournalFile {
 export class JournalComponent implements OnInit {
   newPageModal: boolean = false;
   pagesArray: any[] = [];
-  pageEditDelete: boolean = false;
+  showLess: { [key: string]: boolean } = {};
+  pageEditMode: boolean = false;
+  selectedPageId: string | null = null;
+  pageDeleteConfirmationModal: boolean = false;
+  selectedEmoji: any = null;
   mobileView: boolean = false;
   creatingNewJournal: boolean = false;
   isEditDelete: boolean = false;
@@ -221,7 +227,9 @@ export class JournalComponent implements OnInit {
     this.loadJournalEntries();
 
     this.checkScreenWidth();
+    this.loadPagesFromLocalStorage();
   }
+
   @HostListener('window:resize', ['$event'])
   onResize(event: any) {
     this.checkScreenWidth();
@@ -238,12 +246,128 @@ export class JournalComponent implements OnInit {
     this.newPageForm.reset();
     this.newPageModal = true;
   }
+
   closeNewPageModal() {
+    this.selectedEmoji = null;
+    this.newPageForm.reset();
     this.newPageModal = false;
   }
 
-  openOption() {
-    this.pageEditDelete = !this.pageEditDelete;
+  openOption(page: any) {
+    for (let key in this.showLess) {
+      if (this.showLess.hasOwnProperty(key)) {
+        if (key !== page.id) {
+          this.showLess[key] = false;
+        }
+      }
+    }
+    this.showLess[page.id] = !this.showLess[page.id];
+  }
+
+  onEmojiSelect(event: any) {
+    this.selectedEmoji = event;
+    console.log(this.selectedEmoji);
+
+    this.newPageForm.patchValue({
+      pageIcon: event.emoji.native, // Store the native emoji in the form
+    });
+  }
+
+  editPage(page: any) {
+    this.newPageForm.patchValue({
+      pageName: page.name,
+      pageIcon: page.icon,
+    });
+    this.selectedPageId = page.id;
+    this.pageEditMode = true;
+    this.newPageModal = true;
+    this.showLess[page.id] = false;
+  }
+
+  onAddNewPage() {
+    if (this.newPageForm.valid) {
+      const newPage = {
+        id: uuidv4(),
+        name: this.newPageForm.value.pageName,
+        icon: this.newPageForm.value.pageIcon,
+        created: new Date().toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: 'numeric',
+          hour12: true,
+        }),
+      };
+
+      this.pagesArray.push(newPage);
+      localStorage.setItem('pages', JSON.stringify(this.pagesArray));
+
+      // Reset form and selected emoji after creating a page
+      this.pageEditMode = false;
+      this.newPageModal = false;
+      this.newPageForm.reset();
+      this.selectedEmoji = null;
+    } else {
+      this.newPageForm.markAllAsTouched();
+    }
+  }
+
+  updatePage() {
+    if (this.selectedPageId) {
+      // Find the index of the page to update
+      const pageIndex = this.pagesArray.findIndex(
+        (page) => page.id === this.selectedPageId
+      );
+
+      if (pageIndex !== -1) {
+        // Update the page in the array
+        this.pagesArray[pageIndex] = {
+          ...this.pagesArray[pageIndex],
+          name: this.newPageForm.value.pageName,
+          icon: this.newPageForm.value.pageIcon,
+        };
+
+        // Save the updated array to localStorage
+        localStorage.setItem('pages', JSON.stringify(this.pagesArray));
+
+        // Reset form and close the modal
+        this.pageEditMode = false;
+        this.newPageModal = false;
+        this.newPageForm.reset();
+      }
+    }
+  }
+
+  openDeleteConfirmationPage(pageId: string) {
+    this.selectedPageId = pageId; // Store the ID of the page to delete
+    this.pageDeleteConfirmationModal = true; // Show the confirmation modal
+  }
+
+  closeDeleteConfirmationPage() {
+    this.pageDeleteConfirmationModal = false; // Hide the confirmation modal
+    this.selectedPageId = null; // Reset the selectedPageId
+  }
+
+  confirmDeletePage(pageId: string | null) {
+    if (pageId) {
+      // Filter out the page to be deleted from the array
+      this.pagesArray = this.pagesArray.filter((page) => page.id !== pageId);
+
+      // Save the updated array to localStorage
+      localStorage.setItem('pages', JSON.stringify(this.pagesArray));
+
+      // Reset the modal and selectedPageId
+      this.pageDeleteConfirmationModal = false;
+      this.selectedPageId = null;
+    }
+  }
+
+  loadPagesFromLocalStorage() {
+    const storedPages = localStorage.getItem('pages');
+    if (storedPages) {
+      this.pagesArray = JSON.parse(storedPages);
+    }
   }
 
   toggleSidebar() {
@@ -359,32 +483,6 @@ export class JournalComponent implements OnInit {
 
   get pageIcon() {
     return this.newPageForm.get('pageIcon');
-  }
-
-  onAddNewPage() {
-    if (this.newPageForm.valid) {
-      this.newPageModal = false;
-      console.log(this.newPageForm.value);
-      const newPage = {
-        id: uuidv4(),
-        name: this.newPageForm.value.pageName,
-        icon: this.newPageForm.value.pageIcon,
-        created: new Date().toLocaleString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: 'numeric',
-          hour12: true,
-        }),
-      };
-
-      this.pagesArray.push(newPage);
-      localStorage.setItem('pages', JSON.stringify(this.pagesArray));
-    }
-    if (this.newPageForm.invalid) {
-      this.newPageForm.markAllAsTouched();
-    }
   }
 
   minimumOneTagValidator(): ValidatorFn {
