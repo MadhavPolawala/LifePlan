@@ -119,6 +119,22 @@ audio::-webkit-media-controls-mute-button {
   border: none;
   background: none;
 }
+.editbaricon {
+  display: none;
+}
+.editbar:hover {
+  .editbaricon {
+    display: block;
+  }
+}
+.deletebaricon {
+  display: none;
+}
+.deletebar:hover {
+  .deletebaricon {
+    display: block;
+  }
+}
 
 @media (max-width: 500px) {
   ::ng-deep .description img {

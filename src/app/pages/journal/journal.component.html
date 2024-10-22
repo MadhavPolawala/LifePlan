@@ -181,14 +181,14 @@
               </button>
               <div
                 *ngIf="showLess[page.id]"
-                class="absolute flex flex-col gap-1 z-10 top-10 -right-3 w-40 border border-gray-200 rounded-xl"
+                class="absolute flex flex-col gap-1 z-10 top-10 -right-3 w-40 border border-gray-200 rounded-lg"
               >
                 <div
                   (click)="editPage(page)"
-                  class="flex justify-between group bg-white hover:bg-gray-100 p-2 rounded-t-xl cursor-pointer"
+                  class="flex justify-between editbar bg-white hover:bg-gray-100 p-2 rounded-t-lg cursor-pointer"
                 >
                   <div>Edit Page</div>
-                  <div class="hidden group-hover:block">
+                  <div class="hidden editbaricon">
                     <svg
                       class="w-5 h-5 text-gray-700"
                       aria-hidden="true"
@@ -210,10 +210,10 @@
                 </div>
                 <div
                   (click)="openDeleteConfirmationPage(page.id)"
-                  class="flex justify-between group bg-white hover:bg-gray-100 p-2 rounded-b-xl cursor-pointer"
+                  class="flex justify-between deletebar bg-white hover:bg-gray-100 p-2 rounded-b-lg cursor-pointer"
                 >
                   <div>Delete Page</div>
-                  <div class="hidden group-hover:block">
+                  <div class="deletebaricon">
                     <svg
                       class="w-5 h-5 text-gray-700"
                       aria-hidden="true"
@@ -479,7 +479,9 @@
   <div class="flex flex-col gap-3 mx-3 my-3">
     <div class="inter-5 text-sm text-gray-400">Today</div>
     <div class="flex flex-col px-4 py-2 gap-1 rounded-lg bg-gray-100">
-      <div class="inter-6 text-sm text-gray-950">New Journal</div>
+      <div class="inter-6 text-sm text-gray-950 truncate">
+        {{ journalForm.value.title || "New Journal" }}
+      </div>
       <div class="flex gap-2 items-center">
         <div class="inter-5 text-xs text-gray-600">
           {{ currentDate | date : "yyyy-MM-dd" }}
@@ -510,7 +512,7 @@
         cdkDrag
       >
         <div
-          class="inter-6 text-sm text-w ay-950"
+          class="inter-6 text-sm text-white ay-950"
           [ngClass]="{ 'text-white': item === selectedEntry }"
         >
           {{ item.title }}:
@@ -840,10 +842,10 @@
   class="py-4 lg:ml-[542px] lg:mt-12 pt-6 flex flex-col justify-center items-center border-l-[1px] border-l-gray-200 hidden"
 >
   <div *ngIf="!editMode" class="px-6 py-2 inter-4 text-xl text-gray-900 w-full">
-    Create Journal
+    {{ journalForm.value.title || "New Journal" }}
   </div>
   <div *ngIf="editMode" class="px-6 py-2 inter-4 text-xl text-gray-900 w-full">
-    Edit Journal
+    {{ journalForm.value.title || "Update Journal" }}
   </div>
   <div class="flex flex-col lg:px-8 px-4 py-6 w-full gap-6 overflow-x-auto">
     <form
@@ -1560,7 +1562,7 @@
   class="fixed inset-0 z-50 bg-black bg-opacity-30 flex justify-center items-center"
 >
   <div
-    class="relative flex flex-col bg-white rounded-lg shadow-xl shadow-black p-5 m-5 lg:m-0"
+    class="relative flex lg:min-w-[440px] flex-col bg-white rounded-lg shadow-xl shadow-black p-5 m-5 lg:m-0"
   >
     <div class="inter-6 text-xl font-semibold mb-4">New Page</div>
     <form
@@ -1580,10 +1582,72 @@
         }
       </div>
       <div class="m-0 flex flex-col">
-        <label class="inter-4 text-base text-gray-700 w-fit">Page Icon </label>
+        <!-- <label class="inter-4 text-base text-gray-700 w-fit">Page Icon </label> -->
+        <div class="flex justify-between items-center">
+          <div
+            (click)="showEmojiPicker = !showEmojiPicker"
+            class="flex px-3 py-[6px] gap-2 items-center w-fit border border-gray-200 rounded-xl hover:bg-gray-100 cursor-pointer"
+          >
+            <div class="leading-4 h-4 flex items-center justify-center">
+              <input
+                type="radio"
+                [checked]="selectedEmoji"
+                formControlName="pageIcon"
+              />
+            </div>
+            <div class="inter-4 text-base text-gray-700">Add Icon</div>
+            <div>
+              <svg
+                *ngIf="!showEmojiPicker"
+                class="w-6 h-6 text-gray-800"
+                aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="m19 9-7 7-7-7"
+                />
+              </svg>
+              <svg
+                *ngIf="showEmojiPicker"
+                class="w-6 h-6 text-gray-800"
+                aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="m5 15 7-7 7 7"
+                />
+              </svg>
+            </div>
+          </div>
+          <div class="flex gap-1 justify-center" *ngIf="selectedEmoji">
+            <div
+              class="inter-4 text-[16px] leading-7 align-middle text-gray-700"
+            >
+              Selected Icon :
+            </div>
+            <div class="text-2xl inter-5">{{ selectedEmoji.emoji.native }}</div>
+          </div>
+        </div>
         <!-- //emoji picker -->
         <emoji-mart
-          class="mt-1"
+          *ngIf="showEmojiPicker"
+          class="mt-2"
           set="apple"
           (emojiSelect)="onEmojiSelect($event)"
         ></emoji-mart>
@@ -1591,10 +1655,6 @@
           class="inter-4 text-red-500 ps-2"
           >Page icon is required</span
         >}
-        <div *ngIf="selectedEmoji">
-          Selected Icon:
-          <span class="text-2xl inter-5">{{ selectedEmoji.emoji.native }}</span>
-        </div>
       </div>
       <div class="w-full h-[1px] bg-gray-200"></div>
       <div class="grid grid-cols-2 gap-2">

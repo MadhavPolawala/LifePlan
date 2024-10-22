@@ -71,6 +71,7 @@ export class JournalComponent implements OnInit {
   pageEditMode: boolean = false;
   selectedPageId: string | null = null;
   pageDeleteConfirmationModal: boolean = false;
+  showEmojiPicker: boolean = false;
   selectedEmoji: any = null;
   mobileView: boolean = false;
   creatingNewJournal: boolean = false;
@@ -251,6 +252,8 @@ export class JournalComponent implements OnInit {
     this.selectedEmoji = null;
     this.newPageForm.reset();
     this.newPageModal = false;
+    this.showEmojiPicker = false;
+    this.pageEditMode = false;
   }
 
   openOption(page: any) {
